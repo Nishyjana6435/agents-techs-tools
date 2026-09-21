@@ -9,6 +9,7 @@ Roles required by the brief and what they may do:
 
 The matrix is data, not code paths, so it is trivially auditable and unit-testable.
 """
+
 from __future__ import annotations
 
 from enum import StrEnum

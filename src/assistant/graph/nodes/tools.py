@@ -6,6 +6,7 @@ timeout). Any step whose tool ``requires_approval`` pauses the graph: the node r
 The API surfaces the interrupt to the UI; the user's decision resumes the graph via
 ``Command(resume="approve"|"reject")`` and we come back here to execute (or skip) the step.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,7 +21,10 @@ from assistant.tools import get_tool_registry
 
 
 def _tools_fallback(state: AssistantState, exc: Exception) -> dict[str, Any]:
-    return {"tool_results": [{"tool": "tools_node", "ok": False, "error": str(exc)[:200]}], "pending_approval": None}
+    return {
+        "tool_results": [{"tool": "tools_node", "ok": False, "error": str(exc)[:200]}],
+        "pending_approval": None,
+    }
 
 
 @resilient("tools", _tools_fallback)
@@ -34,20 +38,52 @@ async def tools_node(state: AssistantState) -> dict[str, Any]:
     for step in plan:
         spec = registry.get(step["tool"])
         if spec and spec.requires_approval and not decision:
-            emit("approval", "tools", f"'{step['tool']}' requires human approval; pausing graph", tool=step["tool"], params=step.get("params", {}))
-            return {"pending_approval": {"tool": step["tool"], "params": step.get("params", {}), "reason": step.get("reason", "")}}
+            emit(
+                "approval",
+                "tools",
+                f"'{step['tool']}' requires human approval; pausing graph",
+                tool=step["tool"],
+                params=step.get("params", {}),
+            )
+            return {
+                "pending_approval": {
+                    "tool": step["tool"],
+                    "params": step.get("params", {}),
+                    "reason": step.get("reason", ""),
+                }
+            }
 
     async def run(step: dict[str, Any]):
         spec = registry.get(step["tool"])
         if spec and spec.requires_approval and decision != "approve":
             emit("approval", "tools", f"'{step['tool']}' rejected by user; skipped", tool=step["tool"])
-            return {"tool": step["tool"], "ok": False, "denied": True, "error": "Execution rejected by the user during approval.", "params": step.get("params", {})}
-        emit("tool_call", "tools", f"calling {step['tool']}", tool=step["tool"], params=step.get("params", {}), reason=step.get("reason", ""))
-        result = await registry.execute(step["tool"], step.get("params", {}), user, approved=(decision == "approve"))
+            return {
+                "tool": step["tool"],
+                "ok": False,
+                "denied": True,
+                "error": "Execution rejected by the user during approval.",
+                "params": step.get("params", {}),
+            }
         emit(
-            "tool_result", "tools",
+            "tool_call",
+            "tools",
+            f"calling {step['tool']}",
+            tool=step["tool"],
+            params=step.get("params", {}),
+            reason=step.get("reason", ""),
+        )
+        result = await registry.execute(
+            step["tool"], step.get("params", {}), user, approved=(decision == "approve")
+        )
+        emit(
+            "tool_result",
+            "tools",
             f"{step['tool']} -> {'ok' if result.ok else ('DENIED' if result.denied else 'error')} ({result.duration_ms} ms)",
-            tool=step["tool"], ok=result.ok, denied=result.denied, error=result.error, duration_ms=result.duration_ms,
+            tool=step["tool"],
+            ok=result.ok,
+            denied=result.denied,
+            error=result.error,
+            duration_ms=result.duration_ms,
             output_preview=str(result.output)[:400] if result.ok else None,
         )
         return result.to_state()

@@ -1,10 +1,11 @@
 """Assemble the LangGraph.
 
-    START -> guard -> memory_load -> supervisor -> [retrieval | research | tools | direct]
-    retrieval/research/direct -> response -> validator -> (rewrite -> validator)* -> memory_update -> END
-    tools -> (approval -> tools)? -> response
-    guard(blocked) -> END
+START -> guard -> memory_load -> supervisor -> [retrieval | research | tools | direct]
+retrieval/research/direct -> response -> validator -> (rewrite -> validator)* -> memory_update -> END
+tools -> (approval -> tools)? -> response
+guard(blocked) -> END
 """
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -30,7 +31,9 @@ def _after_guard(state: AssistantState) -> str:
 
 def _after_supervisor(state: AssistantState) -> str:
     route = state.get("route", "retrieval")
-    return {"retrieval": "retrieval", "research": "research", "tools": "tools", "direct": "response"}.get(route, "retrieval")
+    return {"retrieval": "retrieval", "research": "research", "tools": "tools", "direct": "response"}.get(
+        route, "retrieval"
+    )
 
 
 def _after_tools(state: AssistantState) -> str:
@@ -63,13 +66,19 @@ def build_graph(checkpointer=None) -> CompiledStateGraph:
     g.add_edge(START, "guard")
     g.add_conditional_edges("guard", _after_guard, {END: END, "memory_load": "memory_load"})
     g.add_edge("memory_load", "supervisor")
-    g.add_conditional_edges("supervisor", _after_supervisor, {"retrieval": "retrieval", "research": "research", "tools": "tools", "response": "response"})
+    g.add_conditional_edges(
+        "supervisor",
+        _after_supervisor,
+        {"retrieval": "retrieval", "research": "research", "tools": "tools", "response": "response"},
+    )
     g.add_edge("retrieval", "response")
     g.add_edge("research", "response")
     g.add_conditional_edges("tools", _after_tools, {"approval": "approval", "response": "response"})
     g.add_edge("approval", "tools")
     g.add_edge("response", "validator")
-    g.add_conditional_edges("validator", _after_validator, {"rewrite": "rewrite", "memory_update": "memory_update"})
+    g.add_conditional_edges(
+        "validator", _after_validator, {"rewrite": "rewrite", "memory_update": "memory_update"}
+    )
     g.add_edge("rewrite", "validator")
     g.add_edge("memory_update", END)
     return g.compile(checkpointer=checkpointer or get_checkpointer())

@@ -11,6 +11,7 @@ Two layers:
 This is a POC sandbox, not a security boundary against a determined attacker; production would use
 a container/microVM (e.g. Vercel Sandbox, Firecracker) - documented in docs/SECURITY.md.
 """
+
 from __future__ import annotations
 
 import ast
@@ -20,8 +21,29 @@ import sys
 import textwrap
 from typing import Any
 
-ALLOWED_IMPORTS = frozenset({"math", "statistics", "json", "re", "collections", "datetime", "itertools", "functools"})
-FORBIDDEN_NAMES = frozenset({"exec", "eval", "open", "compile", "__import__", "globals", "locals", "input", "breakpoint", "exit", "quit", "help", "vars", "getattr", "setattr", "delattr"})
+ALLOWED_IMPORTS = frozenset(
+    {"math", "statistics", "json", "re", "collections", "datetime", "itertools", "functools"}
+)
+FORBIDDEN_NAMES = frozenset(
+    {
+        "exec",
+        "eval",
+        "open",
+        "compile",
+        "__import__",
+        "globals",
+        "locals",
+        "input",
+        "breakpoint",
+        "exit",
+        "quit",
+        "help",
+        "vars",
+        "getattr",
+        "setattr",
+        "delattr",
+    }
+)
 
 
 class UnsafeCodeError(ValueError):
@@ -35,10 +57,16 @@ def check_code(code: str) -> None:
         raise UnsafeCodeError(f"syntax error: {exc.msg} (line {exc.lineno})") from exc
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
-            names = [a.name.split(".")[0] for a in node.names] if isinstance(node, ast.Import) else [(node.module or "").split(".")[0]]
+            names = (
+                [a.name.split(".")[0] for a in node.names]
+                if isinstance(node, ast.Import)
+                else [(node.module or "").split(".")[0]]
+            )
             for n in names:
                 if n not in ALLOWED_IMPORTS:
-                    raise UnsafeCodeError(f"import of '{n}' is not allowed (allowed: {sorted(ALLOWED_IMPORTS)})")
+                    raise UnsafeCodeError(
+                        f"import of '{n}' is not allowed (allowed: {sorted(ALLOWED_IMPORTS)})"
+                    )
         elif isinstance(node, ast.Attribute) and node.attr.startswith("__"):
             raise UnsafeCodeError(f"dunder attribute access '{node.attr}' is not allowed")
         elif isinstance(node, ast.Name) and node.id in FORBIDDEN_NAMES:
@@ -50,8 +78,32 @@ def check_code(code: str) -> None:
 SAFE_BUILTINS: dict[str, Any] = {
     n: __builtins__[n] if isinstance(__builtins__, dict) else getattr(__builtins__, n)
     for n in (
-        "abs", "all", "any", "bool", "dict", "enumerate", "filter", "float", "int", "len", "list", "map", "max", "min",
-        "range", "round", "set", "sorted", "str", "sum", "tuple", "zip", "isinstance", "print", "reversed", "frozenset",
+        "abs",
+        "all",
+        "any",
+        "bool",
+        "dict",
+        "enumerate",
+        "filter",
+        "float",
+        "int",
+        "len",
+        "list",
+        "map",
+        "max",
+        "min",
+        "range",
+        "round",
+        "set",
+        "sorted",
+        "str",
+        "sum",
+        "tuple",
+        "zip",
+        "isinstance",
+        "print",
+        "reversed",
+        "frozenset",
     )
 }
 
@@ -60,7 +112,7 @@ def run_plan_code(code: str, namespace: dict[str, Any]) -> dict[str, Any]:
     """Execute planner code in-process with a minimal builtins table; returns the resulting namespace."""
     check_code(code)
     env: dict[str, Any] = {"__builtins__": SAFE_BUILTINS, **namespace}
-    exec(compile(code, "<rlm-plan>", "exec"), env)  # noqa: S102 - guarded by check_code + restricted builtins
+    exec(compile(code, "<rlm-plan>", "exec"), env)
     return {k: v for k, v in env.items() if not k.startswith("__") and k not in namespace}
 
 
@@ -85,8 +137,13 @@ async def run_analysis_subprocess(code: str, data: Any, timeout: float) -> dict[
     """Run analysis code in an isolated interpreter. Returns ``{"stdout", "result"}`` or raises."""
     check_code(code)
     proc = await asyncio.create_subprocess_exec(
-        sys.executable, "-I", "-c", _RUNNER,
-        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        sys.executable,
+        "-I",
+        "-c",
+        _RUNNER,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
     )
     payload = json.dumps({"code": code, "data": data}).encode()
     try:
@@ -99,4 +156,7 @@ async def run_analysis_subprocess(code: str, data: Any, timeout: float) -> dict[
         raise RuntimeError(err[-1] if err else f"exit code {proc.returncode}")
     text = stdout.decode(errors="replace")
     printed, _, result_json = text.rpartition("__RESULT__")
-    return {"stdout": printed.strip()[:4000], "result": json.loads(result_json) if result_json.strip() else None}
+    return {
+        "stdout": printed.strip()[:4000],
+        "result": json.loads(result_json) if result_json.strip() else None,
+    }

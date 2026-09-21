@@ -20,14 +20,24 @@ async def health() -> dict:
     registry = await get_tool_registry()
     return {
         "status": "ok" if index.ready else "degraded",
-        "llm": {"provider": s.resolved_llm_provider, "primary_model": model_name("primary"), "worker_model": model_name("worker")},
+        "llm": {
+            "provider": s.resolved_llm_provider,
+            "primary_model": model_name("primary"),
+            "worker_model": model_name("worker"),
+        },
         "embeddings": index.embedder.name,
         "vector_store": index.store.name,
         "index": index.status(),
         "tools": [t.name for t in registry.all()],
         "mcp_mode": "http" if s.mcp_server_url else "in-process",
-        "langsmith": {"enabled": s.langsmith_enabled, "project": s.langsmith_project if s.langsmith_enabled else None},
-        "rate_limit": {"capacity": s.rate_limit_capacity, "refill_per_second": s.rate_limit_refill_per_second},
+        "langsmith": {
+            "enabled": s.langsmith_enabled,
+            "project": s.langsmith_project if s.langsmith_enabled else None,
+        },
+        "rate_limit": {
+            "capacity": s.rate_limit_capacity,
+            "refill_per_second": s.rate_limit_refill_per_second,
+        },
     }
 
 
@@ -37,7 +47,14 @@ async def tools(user: UserContext = Depends(get_current_user)) -> dict:
     return {
         "role": user.role.value,
         "tools": [
-            {"name": t.name, "description": t.description, "permission": t.permission.value, "requires_approval": t.requires_approval, "category": t.category, "allowed": registry.is_allowed(user, t.name)}
+            {
+                "name": t.name,
+                "description": t.description,
+                "permission": t.permission.value,
+                "requires_approval": t.requires_approval,
+                "category": t.category,
+                "allowed": registry.is_allowed(user, t.name),
+            }
             for t in registry.all()
         ],
     }

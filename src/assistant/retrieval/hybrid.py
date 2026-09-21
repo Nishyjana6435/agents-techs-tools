@@ -17,6 +17,7 @@ Failure modes handled here:
 * vector store failure/timeout -> sparse-only search, ``degraded=True``
 * both fail                    -> empty result with an explanatory message (caller tells the user)
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -60,7 +61,9 @@ class SearchResult:
 
 
 class HybridRetriever:
-    def __init__(self, embedder: Embedder, store: VectorStore, bm25: BM25Index, chunks_by_id: dict[str, Chunk]) -> None:
+    def __init__(
+        self, embedder: Embedder, store: VectorStore, bm25: BM25Index, chunks_by_id: dict[str, Chunk]
+    ) -> None:
         self.embedder = embedder
         self.store = store
         self.bm25 = bm25
@@ -68,11 +71,13 @@ class HybridRetriever:
         self.settings = get_settings()
 
     # ---------------------------------------------------------------------------------------
-    async def _dense(self, query: str, namespaces: list[str], metadata_filter: dict, k: int) -> tuple[dict[str, float], list[str]]:
+    async def _dense(
+        self, query: str, namespaces: list[str], metadata_filter: dict, k: int
+    ) -> tuple[dict[str, float], list[str]]:
         notes: list[str] = []
         try:
             vector = (await embed_with_timeout(self.embedder, [query], timeout=20))[0]
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             notes.append(f"embedding failed ({exc.__class__.__name__}); dense search skipped")
             return {}, notes
 
@@ -108,7 +113,9 @@ class HybridRetriever:
         return {c.chunk_id: s for c, s in self.bm25.search(query, k, allow)}
 
     @staticmethod
-    def _rrf(dense: dict[str, float], sparse: dict[str, float], dense_weight: float, k: int = 60) -> dict[str, float]:
+    def _rrf(
+        dense: dict[str, float], sparse: dict[str, float], dense_weight: float, k: int = 60
+    ) -> dict[str, float]:
         fused: dict[str, float] = {}
         for rank, cid in enumerate(sorted(dense, key=dense.get, reverse=True), start=1):
             fused[cid] = fused.get(cid, 0.0) + dense_weight / (k + rank)
@@ -117,17 +124,27 @@ class HybridRetriever:
         return fused
 
     # ---------------------------------------------------------------------------------------
-    async def search(self, query: str, user: UserContext, filters: SearchFilters | None = None, top_k: int | None = None) -> SearchResult:
+    async def search(
+        self, query: str, user: UserContext, filters: SearchFilters | None = None, top_k: int | None = None
+    ) -> SearchResult:
         started = time.perf_counter()
         filters = filters or SearchFilters()
         top_k = top_k or self.settings.retrieval_top_k
-        all_namespaces = sorted({c.namespace for c in self.chunks_by_id.values()}) or [self.settings.pinecone_namespace_default]
-        namespaces = [filters.department] if filters.department and filters.department in all_namespaces else all_namespaces
+        all_namespaces = sorted({c.namespace for c in self.chunks_by_id.values()}) or [
+            self.settings.pinecone_namespace_default
+        ]
+        namespaces = (
+            [filters.department]
+            if filters.department and filters.department in all_namespaces
+            else all_namespaces
+        )
         metadata_filter = filters.to_metadata_filter(user.readable_levels)
 
         # Dense is async I/O; BM25 is CPU-bound and tiny, so run it in a thread while dense is in flight.
         dense_task = self._dense(query, namespaces, metadata_filter, self.settings.dense_candidates)
-        sparse_task = asyncio.to_thread(self._sparse, query, set(namespaces), metadata_filter, self.settings.sparse_candidates)
+        sparse_task = asyncio.to_thread(
+            self._sparse, query, set(namespaces), metadata_filter, self.settings.sparse_candidates
+        )
         (dense, notes), sparse = await asyncio.gather(dense_task, sparse_task)
 
         degraded = bool(notes)
@@ -185,5 +202,9 @@ class HybridRetriever:
             quarantined=quarantined,
             duration_ms=int((time.perf_counter() - started) * 1000),
         )
-        log.info("hybrid_search", query=query[:80], **{k: v for k, v in result.__dict__.items() if k not in ("results", "query", "notes")})
+        log.info(
+            "hybrid_search",
+            query=query[:80],
+            **{k: v for k, v in result.__dict__.items() if k not in ("results", "query", "notes")},
+        )
         return result

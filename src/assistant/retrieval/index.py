@@ -3,6 +3,7 @@
 Embeddings are cached on disk (``data/index_cache``) keyed by a corpus/provider fingerprint so a
 restart does not re-embed unchanged documents and does not re-upsert into Pinecone.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -36,14 +37,18 @@ class KnowledgeIndex:
     # ---------------------------------------------------------------------------------------
     def _fingerprint(self) -> str:
         h = hashlib.sha256()
-        h.update(f"{self.embedder.name}:{self.embedder.dim}:{self.settings.chunk_size_chars}:{self.settings.chunk_overlap_chars}".encode())
+        h.update(
+            f"{self.embedder.name}:{self.embedder.dim}:{self.settings.chunk_size_chars}:{self.settings.chunk_overlap_chars}".encode()
+        )
         for path in sorted(Path(self.settings.docs_dir).glob("*.md")):
             h.update(path.name.encode())
             h.update(path.read_bytes())
         return h.hexdigest()[:16]
 
     async def build(self, force: bool = False) -> None:
-        self.chunks = load_corpus(Path(self.settings.docs_dir), self.settings.chunk_size_chars, self.settings.chunk_overlap_chars)
+        self.chunks = load_corpus(
+            Path(self.settings.docs_dir), self.settings.chunk_size_chars, self.settings.chunk_overlap_chars
+        )
         if not self.chunks:
             log.error("no_documents_found", docs_dir=str(self.settings.docs_dir))
         cache_dir = Path(self.settings.index_cache_dir)
@@ -67,10 +72,20 @@ class KnowledgeIndex:
         if not already_upserted:
             await self.store.upsert(self.chunks, vectors)
             if self.store.name == "pinecone":
-                meta_path.write_text(json.dumps({"provider": self.embedder.name, "chunks": len(self.chunks), "upserted_to": "pinecone"}))
+                meta_path.write_text(
+                    json.dumps(
+                        {
+                            "provider": self.embedder.name,
+                            "chunks": len(self.chunks),
+                            "upserted_to": "pinecone",
+                        }
+                    )
+                )
 
         bm25 = await asyncio.to_thread(BM25Index, self.chunks)
-        self.retriever = HybridRetriever(self.embedder, self.store, bm25, {c.chunk_id: c for c in self.chunks})
+        self.retriever = HybridRetriever(
+            self.embedder, self.store, bm25, {c.chunk_id: c for c in self.chunks}
+        )
         self.ready = True
         log.info(
             "knowledge_index_ready",

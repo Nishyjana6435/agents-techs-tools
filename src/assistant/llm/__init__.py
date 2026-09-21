@@ -13,6 +13,7 @@ Model selection rationale (also in docs/ARCHITECTURE.md):
 Every model is built with an explicit timeout and bounded retries so a hung provider degrades to a
 handled ``LLMError`` instead of a hanging request.
 """
+
 from assistant.llm.provider import LLMError, ainvoke_json, get_llm, llm_call
 
 __all__ = ["LLMError", "ainvoke_json", "get_llm", "llm_call"]

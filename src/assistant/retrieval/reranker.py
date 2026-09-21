@@ -9,6 +9,7 @@ rerank so the pipeline never blocks on this optional stage.
 Why listwise LLM rather than a cross-encoder: no extra model download, provider-agnostic, and the
 judgement is visible in the LangSmith trace (explainability).
 """
+
 from __future__ import annotations
 
 import re
@@ -43,7 +44,9 @@ def _lexical_scores(query: str, candidates: list[RetrievedChunk]) -> list[float]
     return out
 
 
-async def rerank(query: str, candidates: list[RetrievedChunk], top_k: int) -> tuple[list[RetrievedChunk], str]:
+async def rerank(
+    query: str, candidates: list[RetrievedChunk], top_k: int
+) -> tuple[list[RetrievedChunk], str]:
     """Return ``(reranked_top_k, method)`` where method is ``llm`` or ``lexical-fallback``."""
     if not candidates:
         return [], "none"
@@ -67,7 +70,7 @@ async def rerank(query: str, candidates: list[RetrievedChunk], top_k: int) -> tu
         method = "lexical-fallback"
         scores = _lexical_scores(query, candidates)
 
-    for c, s in zip(candidates, scores):
+    for c, s in zip(candidates, scores, strict=True):
         # Blend: rerank dominates but fusion rank breaks ties so we never fully discard hybrid signal.
         c.rerank_score = round(float(s) + c.fused_score, 4)
         c.explanation += f"; rerank({method})={float(s):.1f}"

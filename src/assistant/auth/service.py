@@ -4,6 +4,7 @@ Passwords are PBKDF2-hashed even though users are hardcoded: it costs nothing an
 repo never contains plaintext credentials in code paths (only in this demo seed table, which is
 documented in the README).
 """
+
 from __future__ import annotations
 
 import hashlib

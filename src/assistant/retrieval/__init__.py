@@ -5,7 +5,8 @@ Flow: ``chunker`` -> ``embeddings`` -> (``vector_store`` [Pinecone | in-memory] 
 
 See docs/ARCHITECTURE.md (Retrieval) for the rationale behind each decision.
 """
+
 from assistant.retrieval.index import KnowledgeIndex, get_knowledge_index
 from assistant.retrieval.models import Chunk, RetrievedChunk, SearchFilters
 
-__all__ = ["Chunk", "RetrievedChunk", "SearchFilters", "KnowledgeIndex", "get_knowledge_index"]
+__all__ = ["Chunk", "KnowledgeIndex", "RetrievedChunk", "SearchFilters", "get_knowledge_index"]

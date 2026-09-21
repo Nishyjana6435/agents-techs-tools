@@ -1,26 +1,33 @@
 {
   "username": "viewer",
   "topics": {
-    "security": 2,
-    "runbooks": 1,
-    "incidents": 1
+    "security": 8,
+    "runbooks": 7,
+    "incidents": 4
   },
   "departments": {
-    "payments": 3,
-    "security": 1,
+    "payments": 15,
+    "security": 7,
     "platform_engineering": 2,
-    "compliance": 1
+    "compliance": 1,
+    "digital_channels": 3
   },
   "recent_questions": [
-    "How does the knowledge assistant enforce security?",
-    "Who is the owner of the paycore-gateway service and who is on-call?",
-    "Which incident led to that counter-party confirmation step?",
-    "What is the procedure for certificate rotation?"
+    "What is the procedure for certificate rotation?",
+    "Who is the owner of the paycore-gateway service?",
+    "Which incident led to that step?",
+    "What is the procedure for certificate rotation?",
+    "What is the procedure for certificate rotation?",
+    "Who is the owner of the paycore-gateway service?",
+    "Which incident led to that step?",
+    "What is the procedure for certificate rotation?",
+    "What is the procedure for certificate rotation?",
+    "Who is the owner of the paycore-gateway service?"
   ],
   "feedback": [],
   "preferences": {
     "answer_style": "concise"
   },
-  "turns": 4,
-  "last_seen": "2026-09-21T08:46:59+00:00"
+  "turns": 16,
+  "last_seen": "2026-09-21T08:51:42+00:00"
 }

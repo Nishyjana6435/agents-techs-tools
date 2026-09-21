@@ -1,4 +1,5 @@
 """FastAPI entrypoint. Run with: ``uvicorn assistant.api.main:app --reload``."""
+
 from __future__ import annotations
 
 import os
@@ -38,7 +39,12 @@ async def lifespan(app: FastAPI):
     configure_logging()
     configure_langsmith()
     s = get_settings()
-    log.info("startup", llm=s.resolved_llm_provider, embeddings=s.resolved_embedding_provider, pinecone=s.pinecone_enabled)
+    log.info(
+        "startup",
+        llm=s.resolved_llm_provider,
+        embeddings=s.resolved_embedding_provider,
+        pinecone=s.pinecone_enabled,
+    )
     # Warm everything so the first user request is fast and startup failures are visible in logs.
     await get_knowledge_index()
     await get_tool_registry()
@@ -58,23 +64,29 @@ def create_app() -> FastAPI:
         started = time.perf_counter()
         try:
             response = await call_next(request)
-        except Exception:  # noqa: BLE001
+        except Exception:
             log.exception("unhandled_error")
             clear_request_context()
             return JSONResponse({"error": "internal_error", "request_id": request_id}, status_code=500)
         response.headers["X-Request-ID"] = request_id
-        log.info("request", status=response.status_code, duration_ms=int((time.perf_counter() - started) * 1000))
+        log.info(
+            "request", status=response.status_code, duration_ms=int((time.perf_counter() - started) * 1000)
+        )
         clear_request_context()
         return response
 
     @app.exception_handler(HTTPException)
     async def http_error(request: Request, exc: HTTPException):
         detail = exc.detail if isinstance(exc.detail, dict) else {"message": exc.detail}
-        return JSONResponse({"error": exc.status_code, **detail}, status_code=exc.status_code, headers=exc.headers)
+        return JSONResponse(
+            {"error": exc.status_code, **detail}, status_code=exc.status_code, headers=exc.headers
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(request: Request, exc: RequestValidationError):
-        return JSONResponse({"error": 422, "message": "Invalid request", "details": exc.errors()}, status_code=422)
+        return JSONResponse(
+            {"error": 422, "message": "Invalid request", "details": exc.errors()}, status_code=422
+        )
 
     app.include_router(auth.router)
     app.include_router(chat.router)

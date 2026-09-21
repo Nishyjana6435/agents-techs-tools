@@ -67,7 +67,9 @@ def model_name(tier: Tier = "primary") -> str:
     return f"mock-{tier}"
 
 
-async def llm_call(llm: BaseChatModel, messages: list[BaseMessage], *, timeout: float | None = None, **kwargs: Any):
+async def llm_call(
+    llm: BaseChatModel, messages: list[BaseMessage], *, timeout: float | None = None, **kwargs: Any
+):
     """Invoke with an outer timeout and convert every failure into ``LLMError``.
 
     LangChain already retries transient HTTP errors; the outer ``wait_for`` protects against a
@@ -78,7 +80,7 @@ async def llm_call(llm: BaseChatModel, messages: list[BaseMessage], *, timeout: 
         return await asyncio.wait_for(llm.ainvoke(messages, **kwargs), timeout=timeout)
     except TimeoutError as exc:
         raise LLMError("LLM call timed out") from exc
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise LLMError(f"LLM call failed: {exc.__class__.__name__}: {exc}") from exc
 
 
@@ -98,7 +100,9 @@ def extract_json(text: str) -> dict[str, Any]:
         return json.loads(m.group(0))
 
 
-async def ainvoke_json(llm: BaseChatModel, messages: list[BaseMessage], schema: type[T], *, default: T | None = None) -> T:
+async def ainvoke_json(
+    llm: BaseChatModel, messages: list[BaseMessage], schema: type[T], *, default: T | None = None
+) -> T:
     """Ask the model for JSON and validate it against ``schema``.
 
     We deliberately parse ourselves instead of relying on provider-specific structured-output
@@ -107,8 +111,12 @@ async def ainvoke_json(llm: BaseChatModel, messages: list[BaseMessage], schema: 
     """
     try:
         response = await llm_call(llm, messages)
-        content = response.content if isinstance(response.content, str) else "".join(
-            part.get("text", "") if isinstance(part, dict) else str(part) for part in response.content
+        content = (
+            response.content
+            if isinstance(response.content, str)
+            else "".join(
+                part.get("text", "") if isinstance(part, dict) else str(part) for part in response.content
+            )
         )
         return schema.model_validate(extract_json(content))
     except (LLMError, ValidationError, json.JSONDecodeError, ValueError) as exc:

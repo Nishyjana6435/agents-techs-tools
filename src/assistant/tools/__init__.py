@@ -12,6 +12,7 @@
 The LLM never sees a tool it is not allowed to use (``available_for(user)`` filters the list that is
 rendered into prompts) *and* the registry re-checks at execution time. Two independent controls.
 """
+
 from assistant.tools.registry import ToolRegistry, ToolResult, ToolSpec, get_tool_registry
 
 __all__ = ["ToolRegistry", "ToolResult", "ToolSpec", "get_tool_registry"]

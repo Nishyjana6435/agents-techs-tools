@@ -9,6 +9,7 @@ Runs two ways:
 Tools are intentionally read-only lookups; the "admin" style action lives in the agent's own
 tool registry where RBAC + human approval can gate it.
 """
+
 from __future__ import annotations
 
 from mcp.server.mcpserver import MCPServer
@@ -35,7 +36,11 @@ def get_service(name: str) -> dict:
     for s in SERVICES:
         if s["name"] == n or n in s["display_name"].lower():
             owner = next((e for e in EMPLOYEES if e["id"] == s["owner"]), None)
-            return {**s, "owner_name": owner["name"] if owner else None, "owner_email": owner["email"] if owner else None}
+            return {
+                **s,
+                "owner_name": owner["name"] if owner else None,
+                "owner_email": owner["email"] if owner else None,
+            }
     return {"error": f"service '{name}' not found", "known_services": [s["name"] for s in SERVICES]}
 
 
@@ -47,11 +52,18 @@ def list_services(department: str | None = None, tier: str | None = None) -> lis
         out = [s for s in out if s["department"] == department.lower()]
     if tier:
         out = [s for s in out if s["tier"] == tier.lower()]
-    return [{k: s[k] for k in ("name", "display_name", "tier", "department", "owner", "runbook")} for s in out]
+    return [
+        {k: s[k] for k in ("name", "display_name", "tier", "department", "owner", "runbook")} for s in out
+    ]
 
 
 @server.tool()
-def search_incidents(service: str | None = None, severity: str | None = None, status: str | None = None, since: str | None = None) -> list[dict]:
+def search_incidents(
+    service: str | None = None,
+    severity: str | None = None,
+    status: str | None = None,
+    since: str | None = None,
+) -> list[dict]:
     """Search incident records. Filters: service name, severity (SEV-1/2/3), status (open/closed), since (YYYY-MM-DD)."""
     out = INCIDENTS
     if service:

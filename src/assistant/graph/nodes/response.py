@@ -1,4 +1,5 @@
 """Response agent: grounded, cited final answer. Tokens stream to the UI via the ``messages`` stream."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -18,7 +19,13 @@ DEGRADED_MESSAGE = (
 
 
 def _fallback(state: AssistantState, exc: Exception) -> dict[str, Any]:
-    bullets = "\n".join(f"- {e['title']} > {e.get('section') or 'body'} [{i}]" for i, e in enumerate(state.get("evidence", [])[:8], start=1)) or "- (no evidence)"
+    bullets = (
+        "\n".join(
+            f"- {e['title']} > {e.get('section') or 'body'} [{i}]"
+            for i, e in enumerate(state.get("evidence", [])[:8], start=1)
+        )
+        or "- (no evidence)"
+    )
     return {"draft_answer": DEGRADED_MESSAGE.format(evidence=bullets)}
 
 
@@ -27,7 +34,7 @@ async def response_node(state: AssistantState) -> dict[str, Any]:
     user = user_from_state(state)
     evidence = state.get("evidence") or []
     sections = [
-        f"<user role=\"{user.role.value}\" name=\"{user.display_name}\" department=\"{user.department}\"/>",
+        f'<user role="{user.role.value}" name="{user.display_name}" department="{user.department}"/>',
         f"<user_memory>{state.get('memory_context', '')}</user_memory>",
         render_history(state["messages"], state.get("conversation_summary", "")),
         f"## Question\n{state['question']}",
@@ -39,9 +46,17 @@ async def response_node(state: AssistantState) -> dict[str, Any]:
     if state.get("tool_results"):
         sections.append(f"## Tool results\n{render_tool_results(state['tool_results'])}")
     if state.get("degraded"):
-        sections.append("## Note\nSome components were degraded during this request; be explicit about limitations.")
+        sections.append(
+            "## Note\nSome components were degraded during this request; be explicit about limitations."
+        )
 
-    emit("state", "response", f"generating answer from {len(evidence)} evidence chunks" + (" + research findings" if state.get("research_findings") else "") + (f" + {len(state.get('tool_results', []))} tool result(s)" if state.get("tool_results") else ""))
+    emit(
+        "state",
+        "response",
+        f"generating answer from {len(evidence)} evidence chunks"
+        + (" + research findings" if state.get("research_findings") else "")
+        + (f" + {len(state.get('tool_results', []))} tool result(s)" if state.get("tool_results") else ""),
+    )
     llm = get_llm("primary")
     messages = [SystemMessage(content=RESPONSE_SYSTEM), HumanMessage(content="\n\n".join(sections))]
     parts: list[str] = []
@@ -53,7 +68,7 @@ async def response_node(state: AssistantState) -> dict[str, Any]:
                 parts.append(content)
             else:
                 parts.extend(p.get("text", "") for p in content if isinstance(p, dict))
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise LLMError(f"response generation failed: {exc}") from exc
     draft = "".join(parts).strip()
     emit("state", "response", f"draft answer ready ({len(draft)} chars)")

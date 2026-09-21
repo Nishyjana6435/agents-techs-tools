@@ -1,11 +1,13 @@
 """Input validation for the three untrusted boundaries: user, tool parameters, retrieved content."""
+
 from __future__ import annotations
 
 import re
 import unicodedata
 from typing import Any
 
-from pydantic import BaseModel, ValidationError as PydanticValidationError
+from pydantic import BaseModel
+from pydantic import ValidationError as PydanticValidationError
 
 from assistant.config import get_settings
 

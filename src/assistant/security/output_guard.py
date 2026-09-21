@@ -14,22 +14,45 @@ Checks
 The guard returns a ``GuardReport`` with machine-readable issues so the activity panel can show
 *why* a response was rewritten, and a ``cleaned_text`` with redactions applied.
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
 
 CITATION_RE = re.compile(r"\[(\d{1,2})\]")
-API_KEY_RE = re.compile(r"\b(sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|pcsk_[A-Za-z0-9_-]{16,}|lsv2_[A-Za-z0-9_-]{16,}|xox[baprs]-[A-Za-z0-9-]{10,})\b")
+API_KEY_RE = re.compile(
+    r"\b(sk-[A-Za-z0-9_-]{16,}|AKIA[0-9A-Z]{16}|pcsk_[A-Za-z0-9_-]{16,}|lsv2_[A-Za-z0-9_-]{16,}|xox[baprs]-[A-Za-z0-9-]{10,})\b"
+)
 CARD_RE = re.compile(r"\b(?:\d[ -]?){13,19}\b")
 IBAN_RE = re.compile(r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b")
-PROMPT_LEAK_RE = re.compile(r"(BEGIN SYSTEM PROMPT|<system>|You are the Meridian Knowledge Assistant, an internal)", re.IGNORECASE)
+PROMPT_LEAK_RE = re.compile(
+    r"(BEGIN SYSTEM PROMPT|<system>|You are the Meridian Knowledge Assistant, an internal)", re.IGNORECASE
+)
 
 BRAND_RULES: list[tuple[str, re.Pattern[str]]] = [
-    ("personal_investment_advice", re.compile(r"\b(you should|I recommend you|I advise you to)\b.{0,40}\b(buy|sell|invest in|short|hold)\b.{0,40}\b(stock|shares|crypto|bitcoin|bond|fund)s?\b", re.I)),
-    ("guaranteed_returns", re.compile(r"\b(guaranteed|risk-free|can't lose|cannot lose)\b.{0,30}\b(return|profit|gain)s?\b", re.I)),
-    ("competitor_disparagement", re.compile(r"\b(hsbc|barclays|citi|jpmorgan|chase|wells fargo|santander|lloyds)\b.{0,60}\b(scam|fraud|terrible|worst|incompetent|steal)", re.I)),
-    ("profanity", re.compile(r"\b(fuck|shit|bitch|asshole)\b", re.I)),
+    (
+        "personal_investment_advice",
+        re.compile(
+            r"\b(you should|I recommend you|I advise you to)\b.{0,40}\b(buy|sell|invest in|short|hold)\b.{0,40}\b(stock|shares|crypto|bitcoin|bond|fund)s?\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "guaranteed_returns",
+        re.compile(
+            r"\b(guaranteed|risk-free|can't lose|cannot lose)\b.{0,30}\b(return|profit|gain)s?\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "competitor_disparagement",
+        re.compile(
+            r"\b(hsbc|barclays|citi|jpmorgan|chase|wells fargo|santander|lloyds)\b.{0,60}\b(scam|fraud|terrible|worst|incompetent|steal)",
+            re.IGNORECASE,
+        ),
+    ),
+    ("profanity", re.compile(r"\b(fuck|shit|bitch|asshole)\b", re.IGNORECASE)),
 ]
 
 

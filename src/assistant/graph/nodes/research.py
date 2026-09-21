@@ -18,6 +18,7 @@ Instead of stuffing every matching document into one prompt, the agent:
 
 Every step emits ``rlm`` activity events so the panel shows the recursion happening.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -42,34 +43,58 @@ settings = get_settings()
 
 
 def _fallback(state: AssistantState, exc: Exception) -> dict[str, Any]:
-    return {"evidence": state.get("evidence", []), "research_findings": f"Research agent failed ({exc.__class__.__name__}); answering from any evidence gathered so far.", "degraded": True}
+    return {
+        "evidence": state.get("evidence", []),
+        "research_findings": f"Research agent failed ({exc.__class__.__name__}); answering from any evidence gathered so far.",
+        "degraded": True,
+    }
 
 
 # ----------------------------------------------------------------------------------- 1. plan
-def _deterministic_plan(question: str, sub_questions: list[str], filters: dict[str, Any]) -> list[dict[str, Any]]:
+def _deterministic_plan(
+    question: str, sub_questions: list[str], filters: dict[str, Any]
+) -> list[dict[str, Any]]:
     steps = [{"query": q, **filters} for q in (sub_questions or [question])]
     if not any(s["query"] == question for s in steps):
         steps.append({"query": question, **filters})
     return steps[:6]
 
 
-async def _plan(question: str, sub_questions: list[str], filters: dict[str, Any]) -> tuple[list[dict[str, Any]], str, str]:
+async def _plan(
+    question: str, sub_questions: list[str], filters: dict[str, Any]
+) -> tuple[list[dict[str, Any]], str, str]:
     """Return ``(plan, code, method)``."""
     try:
         prompt = f"question = {json.dumps(question)}\nsub_questions = {json.dumps(sub_questions)}\nfilters = {json.dumps(filters)}"
-        msg = await llm_call(get_llm("primary"), [SystemMessage(content=RLM_PLAN_SYSTEM), HumanMessage(content=prompt)])
+        msg = await llm_call(
+            get_llm("primary"), [SystemMessage(content=RLM_PLAN_SYSTEM), HumanMessage(content=prompt)]
+        )
         code = message_text(msg).strip()
         code = re.sub(r"^```(?:python)?\s*|\s*```$", "", code, flags=re.DOTALL)
         env = run_plan_code(code, {"question": question, "sub_questions": sub_questions, "filters": filters})
         plan = env.get("plan")
-        if not isinstance(plan, list) or not plan or not all(isinstance(s, dict) and s.get("query") for s in plan):
+        if (
+            not isinstance(plan, list)
+            or not plan
+            or not all(isinstance(s, dict) and s.get("query") for s in plan)
+        ):
             raise ValueError("plan code did not produce a non-empty list of steps with queries")
         clean = []
         for s in plan[:6]:
-            clean.append({k: s.get(k) for k in ("query", "document_types", "department", "created_after", "created_before") if s.get(k)})
+            clean.append(
+                {
+                    k: s.get(k)
+                    for k in ("query", "document_types", "department", "created_after", "created_before")
+                    if s.get(k)
+                }
+            )
         return clean, code, "llm-python-plan"
     except (LLMError, UnsafeCodeError, ValueError, TypeError, KeyError) as exc:
-        emit("rlm", "research", f"plan generation failed ({exc.__class__.__name__}: {str(exc)[:120]}); using deterministic plan")
+        emit(
+            "rlm",
+            "research",
+            f"plan generation failed ({exc.__class__.__name__}: {str(exc)[:120]}); using deterministic plan",
+        )
         return _deterministic_plan(question, sub_questions, filters), "", "deterministic-fallback"
 
 
@@ -77,15 +102,23 @@ async def _plan(question: str, sub_questions: list[str], filters: dict[str, Any]
 async def _explore(plan: list[dict[str, Any]], user, registry) -> tuple[list[dict[str, Any]], list[str]]:
     async def one(step: dict[str, Any]):
         params = {**step, "top_k": 10}
-        emit("tool_call", "research", f"knowledge_search: {step['query'][:70]}", tool="knowledge_search", params=params)
+        emit(
+            "tool_call",
+            "research",
+            f"knowledge_search: {step['query'][:70]}",
+            tool="knowledge_search",
+            params=params,
+        )
         return await registry.execute("knowledge_search", params, user)
 
     results = await asyncio.gather(*(one(s) for s in plan), return_exceptions=True)
     seen: dict[str, dict[str, Any]] = {}
     notes: list[str] = []
-    for step, res in zip(plan, results):
+    for step, res in zip(plan, results, strict=True):
         if isinstance(res, Exception) or not res.ok:
-            notes.append(f"search failed for '{step['query'][:40]}': {res if isinstance(res, Exception) else res.error}")
+            notes.append(
+                f"search failed for '{step['query'][:40]}': {res if isinstance(res, Exception) else res.error}"
+            )
             continue
         for q in res.output.get("quarantined", []):
             emit("security", "research", f"quarantined chunk with injection patterns: {q}")
@@ -119,19 +152,41 @@ def _batches(collection: list[dict[str, Any]]) -> list[list[int]]:
 
 
 # ----------------------------------------------------------------------------------- 4. analyse
-async def _analyse_batch(batch_no: int, ids: list[int], collection: list[dict[str, Any]], question: str, sub_questions: list[str], sem: asyncio.Semaphore) -> tuple[int, str | None]:
+async def _analyse_batch(
+    batch_no: int,
+    ids: list[int],
+    collection: list[dict[str, Any]],
+    question: str,
+    sub_questions: list[str],
+    sem: asyncio.Semaphore,
+) -> tuple[int, str | None]:
     async with sem:
         evidence = [collection[i - 1] for i in ids]
         docs = sorted({e["title"] for e in evidence})
-        emit("rlm", "research", f"sub-agent batch {batch_no}: analysing {len(ids)} chunks from {len(docs)} document(s)", batch=batch_no, documents=docs, evidence_ids=ids)
+        emit(
+            "rlm",
+            "research",
+            f"sub-agent batch {batch_no}: analysing {len(ids)} chunks from {len(docs)} document(s)",
+            batch=batch_no,
+            documents=docs,
+            evidence_ids=ids,
+        )
         prompt = (
             f"Main question: {question}\nSub-questions: {json.dumps(sub_questions)}\n\n"
             f"{render_evidence(evidence, max_chars_each=1500, ids=ids)}"
         )
         try:
-            msg = await llm_call(get_llm("worker"), [SystemMessage(content=RLM_BATCH_SYSTEM), HumanMessage(content=prompt)])
+            msg = await llm_call(
+                get_llm("worker"), [SystemMessage(content=RLM_BATCH_SYSTEM), HumanMessage(content=prompt)]
+            )
             text = message_text(msg).strip()
-            emit("rlm", "research", f"batch {batch_no} findings ready ({len(text)} chars)", batch=batch_no, preview=text[:300])
+            emit(
+                "rlm",
+                "research",
+                f"batch {batch_no} findings ready ({len(text)} chars)",
+                batch=batch_no,
+                preview=text[:300],
+            )
             return batch_no, text
         except LLMError as exc:
             emit("error", "research", f"batch {batch_no} failed and was skipped: {exc}")
@@ -148,12 +203,23 @@ async def _aggregate(findings: list[str], question: str, depth: int = 1) -> str:
         groups = [findings]
     else:
         groups = [findings[i : i + group_size] for i in range(0, len(findings), group_size)]
-    emit("rlm", "research", f"aggregation depth {depth}: merging {len(findings)} finding sets in {len(groups)} group(s)", depth=depth, groups=len(groups))
+    emit(
+        "rlm",
+        "research",
+        f"aggregation depth {depth}: merging {len(findings)} finding sets in {len(groups)} group(s)",
+        depth=depth,
+        groups=len(groups),
+    )
 
     async def merge(group: list[str]) -> str:
-        prompt = f"Question: {question}\n\n" + "\n\n---\n\n".join(f"Findings set {i + 1}:\n{g}" for i, g in enumerate(group))
+        prompt = f"Question: {question}\n\n" + "\n\n---\n\n".join(
+            f"Findings set {i + 1}:\n{g}" for i, g in enumerate(group)
+        )
         try:
-            msg = await llm_call(get_llm("primary"), [SystemMessage(content=RLM_AGGREGATE_SYSTEM), HumanMessage(content=prompt)])
+            msg = await llm_call(
+                get_llm("primary"),
+                [SystemMessage(content=RLM_AGGREGATE_SYSTEM), HumanMessage(content=prompt)],
+            )
             return message_text(msg).strip()
         except LLMError as exc:
             emit("error", "research", f"aggregation call failed ({exc}); concatenating findings instead")
@@ -169,7 +235,16 @@ async def _aggregate(findings: list[str], question: str, depth: int = 1) -> str:
 async def _quantify(collection: list[dict[str, Any]], user, registry) -> str:
     docs: dict[str, dict[str, Any]] = {}
     for ev in collection:
-        docs.setdefault(ev["doc_id"], {"doc_id": ev["doc_id"], "title": ev["title"], "date": ev.get("created_date"), "type": ev.get("document_type"), "tags": []})
+        docs.setdefault(
+            ev["doc_id"],
+            {
+                "doc_id": ev["doc_id"],
+                "title": ev["title"],
+                "date": ev.get("created_date"),
+                "type": ev.get("document_type"),
+                "tags": [],
+            },
+        )
     # tags live in chunk metadata for incident docs; the knowledge index keeps them on the chunk.
     from assistant.retrieval import get_knowledge_index
 
@@ -181,8 +256,14 @@ async def _quantify(collection: list[dict[str, Any]], user, registry) -> str:
     if not registry.is_allowed(user, "python_analysis"):
         # Still give a deterministic count in code, but be explicit that the tool was not used.
         counts = Counter(t for d in data for t in d["tags"])
-        emit("security", "research", f"python_analysis not available to role '{user.role.value}'; using built-in counts instead")
-        return "Document counts (built-in, analytics tool not permitted for this role): " + json.dumps(dict(counts.most_common(6)))
+        emit(
+            "security",
+            "research",
+            f"python_analysis not available to role '{user.role.value}'; using built-in counts instead",
+        )
+        return "Document counts (built-in, analytics tool not permitted for this role): " + json.dumps(
+            dict(counts.most_common(6))
+        )
     code = (
         "from collections import Counter\n"
         "tags = Counter(t for d in data for t in d.get('tags', []))\n"
@@ -190,10 +271,31 @@ async def _quantify(collection: list[dict[str, Any]], user, registry) -> str:
         "result = {'documents': len(data), 'incidents': sum(1 for d in data if d.get('type') == 'incident'),\n"
         "          'root_cause_tags': dict(tags.most_common(8)), 'incidents_per_month': dict(sorted(months.items()))}\n"
     )
-    emit("tool_call", "research", "python_analysis: root-cause tag and monthly counts", tool="python_analysis", params={"purpose": "root cause frequency", "rows": len(data)})
-    res = await registry.execute("python_analysis", {"code": code, "data": data, "purpose": "root cause tag frequency over research collection"}, user)
-    emit("tool_result", "research", f"python_analysis -> {'ok' if res.ok else res.error}", tool="python_analysis", ok=res.ok, output=res.output if res.ok else None)
-    return "Quantitative summary (python_analysis): " + json.dumps(res.output.get("result")) if res.ok else f"Quantitative analysis unavailable: {res.error}"
+    emit(
+        "tool_call",
+        "research",
+        "python_analysis: root-cause tag and monthly counts",
+        tool="python_analysis",
+        params={"purpose": "root cause frequency", "rows": len(data)},
+    )
+    res = await registry.execute(
+        "python_analysis",
+        {"code": code, "data": data, "purpose": "root cause tag frequency over research collection"},
+        user,
+    )
+    emit(
+        "tool_result",
+        "research",
+        f"python_analysis -> {'ok' if res.ok else res.error}",
+        tool="python_analysis",
+        ok=res.ok,
+        output=res.output if res.ok else None,
+    )
+    return (
+        "Quantitative summary (python_analysis): " + json.dumps(res.output.get("result"))
+        if res.ok
+        else f"Quantitative analysis unavailable: {res.error}"
+    )
 
 
 # =============================================================================== node
@@ -201,35 +303,84 @@ async def _quantify(collection: list[dict[str, Any]], user, registry) -> str:
 async def research_node(state: AssistantState) -> dict[str, Any]:
     user = user_from_state(state)
     registry = await get_tool_registry()
-    question, sub_questions, filters = state["question"], state.get("sub_questions", []), dict(state.get("filters") or {})
+    question, sub_questions, filters = (
+        state["question"],
+        state.get("sub_questions", []),
+        dict(state.get("filters") or {}),
+    )
     trace: list[dict[str, Any]] = []
 
     plan, code, method = await _plan(question, sub_questions, filters)
-    emit("rlm", "research", f"search plan ready via {method}: {len(plan)} step(s)", plan=plan, code=code, method=method)
+    emit(
+        "rlm",
+        "research",
+        f"search plan ready via {method}: {len(plan)} step(s)",
+        plan=plan,
+        code=code,
+        method=method,
+    )
     trace.append({"step": "plan", "method": method, "steps": plan, "code": code})
 
     collection, notes = await _explore(plan, user, registry)
     docs = sorted({e["doc_id"] for e in collection})
-    emit("rlm", "research", f"explored collection: {len(collection)} chunks across {len(docs)} documents", documents=docs, notes=notes)
+    emit(
+        "rlm",
+        "research",
+        f"explored collection: {len(collection)} chunks across {len(docs)} documents",
+        documents=docs,
+        notes=notes,
+    )
     trace.append({"step": "explore", "chunks": len(collection), "documents": docs, "notes": notes})
     if not collection:
-        return {"evidence": [], "research_findings": "No documents matched the research plan.", "rlm_trace": trace, "degraded": True}
+        return {
+            "evidence": [],
+            "research_findings": "No documents matched the research plan.",
+            "rlm_trace": trace,
+            "degraded": True,
+        }
 
     batches = _batches(collection)
-    emit("rlm", "research", f"split into {len(batches)} batch(es) of up to {settings.rlm_batch_size} chunks", batches=batches)
+    emit(
+        "rlm",
+        "research",
+        f"split into {len(batches)} batch(es) of up to {settings.rlm_batch_size} chunks",
+        batches=batches,
+    )
     trace.append({"step": "batch", "batches": batches})
 
     sem = asyncio.Semaphore(4)
-    results = await asyncio.gather(*(_analyse_batch(i + 1, ids, collection, question, sub_questions, sem) for i, ids in enumerate(batches)))
+    results = await asyncio.gather(
+        *(
+            _analyse_batch(i + 1, ids, collection, question, sub_questions, sem)
+            for i, ids in enumerate(batches)
+        )
+    )
     findings = [text for _, text in results if text]
     failed = [n for n, text in results if not text]
     trace.append({"step": "analyse", "batches_ok": len(findings), "batches_failed": failed})
     if not findings:
-        return {"evidence": collection, "research_findings": "All research sub-agents failed; falling back to raw evidence.", "rlm_trace": trace, "degraded": True}
+        return {
+            "evidence": collection,
+            "research_findings": "All research sub-agents failed; falling back to raw evidence.",
+            "rlm_trace": trace,
+            "degraded": True,
+        }
 
     synthesis = await _aggregate(findings, question)
     quant = await _quantify(collection, user, registry)
     research_findings = f"{synthesis}\n\n{quant}"
     trace.append({"step": "aggregate", "chars": len(synthesis), "quant": quant[:200]})
-    emit("rlm", "research", "research synthesis complete", chars=len(research_findings), batches=len(findings), failed_batches=failed)
-    return {"evidence": collection, "research_findings": research_findings, "rlm_trace": trace, "degraded": bool(failed or notes)}
+    emit(
+        "rlm",
+        "research",
+        "research synthesis complete",
+        chars=len(research_findings),
+        batches=len(findings),
+        failed_batches=failed,
+    )
+    return {
+        "evidence": collection,
+        "research_findings": research_findings,
+        "rlm_trace": trace,
+        "degraded": bool(failed or notes),
+    }

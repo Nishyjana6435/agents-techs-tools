@@ -8,6 +8,7 @@ every log emitted while a request is being processed, including inside LangGraph
 calls, carries ``request_id``, ``user`` and ``thread_id`` without threading them through
 function signatures.
 """
+
 from __future__ import annotations
 
 import logging

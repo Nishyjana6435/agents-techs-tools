@@ -8,6 +8,7 @@ Trade-off: Pinecone also supports sparse vectors natively (dotproduct indexes); 
 BM25 so hybrid search works identically with the in-memory fallback and does not require a
 server-side sparse encoder. Swapping to Pinecone sparse vectors is a contained change here.
 """
+
 from __future__ import annotations
 
 import re
@@ -19,7 +20,41 @@ from assistant.retrieval.models import Chunk
 
 TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9\-\.]*")
 STOPWORDS = frozenset(
-    "the a an and or of to in for on at by with from is are was were be been this that these those it its as into over under about all any".split()
+    [
+        "the",
+        "a",
+        "an",
+        "and",
+        "or",
+        "of",
+        "to",
+        "in",
+        "for",
+        "on",
+        "at",
+        "by",
+        "with",
+        "from",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "this",
+        "that",
+        "these",
+        "those",
+        "it",
+        "its",
+        "as",
+        "into",
+        "over",
+        "under",
+        "about",
+        "all",
+        "any",
+    ]
 )
 
 
@@ -40,9 +75,13 @@ def tokenize(text: str) -> list[str]:
 class BM25Index:
     def __init__(self, chunks: list[Chunk]) -> None:
         self.chunks = chunks
-        self._bm25 = BM25Okapi([tokenize(f"{c.title} {c.section} {c.text}") for c in chunks]) if chunks else None
+        self._bm25 = (
+            BM25Okapi([tokenize(f"{c.title} {c.section} {c.text}") for c in chunks]) if chunks else None
+        )
 
-    def search(self, query: str, k: int, allow: Callable[[Chunk], bool] | None = None) -> list[tuple[Chunk, float]]:
+    def search(
+        self, query: str, k: int, allow: Callable[[Chunk], bool] | None = None
+    ) -> list[tuple[Chunk, float]]:
         if not self._bm25:
             return []
         scores = self._bm25.get_scores(tokenize(query))

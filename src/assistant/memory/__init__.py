@@ -16,7 +16,8 @@ Design (see docs/ARCHITECTURE.md > Memory for the full rationale):
 * **Feedback** - thumbs up/down per answer are stored alongside the profile and forwarded to
   LangSmith as run feedback, closing the loop for answer-quality evaluation.
 """
+
 from assistant.memory.long_term import LongTermMemory, get_long_term_memory
 from assistant.memory.short_term import get_checkpointer, summarize_history
 
-__all__ = ["LongTermMemory", "get_long_term_memory", "get_checkpointer", "summarize_history"]
+__all__ = ["LongTermMemory", "get_checkpointer", "get_long_term_memory", "summarize_history"]

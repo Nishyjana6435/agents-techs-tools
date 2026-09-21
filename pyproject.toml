@@ -43,3 +43,7 @@ pythonpath = ["src"]
 [tool.ruff]
 line-length = 110
 target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "ASYNC", "S102"]
+ignore = ["B008", "E501", "RUF012", "SIM117", "UP047", "S102", "ASYNC109", "ASYNC240", "RUF001", "SIM105"]

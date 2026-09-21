@@ -1,4 +1,5 @@
 """Answer-quality feedback loop: stored in long-term memory and forwarded to LangSmith."""
+
 from __future__ import annotations
 
 import asyncio
@@ -25,7 +26,9 @@ class FeedbackRequest(BaseModel):
 
 @router.post("/feedback")
 async def feedback(body: FeedbackRequest, user: UserContext = Depends(get_current_user)) -> dict:
-    await get_long_term_memory().record_feedback(user.username, body.thread_id, body.run_id, body.score, body.comment)
+    await get_long_term_memory().record_feedback(
+        user.username, body.thread_id, body.run_id, body.score, body.comment
+    )
     forwarded = False
     settings = get_settings()
     if settings.langsmith_enabled and body.run_id:
@@ -39,7 +42,9 @@ async def feedback(body: FeedbackRequest, user: UserContext = Depends(get_curren
 
             await asyncio.wait_for(asyncio.to_thread(send), timeout=8)
             forwarded = True
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.warning("langsmith_feedback_failed", error=str(exc)[:120])
-    log.info("feedback_recorded", user=user.username, score=body.score, run_id=body.run_id, forwarded=forwarded)
+    log.info(
+        "feedback_recorded", user=user.username, score=body.score, run_id=body.run_id, forwarded=forwarded
+    )
     return {"status": "recorded", "forwarded_to_langsmith": forwarded}

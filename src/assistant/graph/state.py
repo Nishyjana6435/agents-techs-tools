@@ -4,6 +4,7 @@ One flat ``TypedDict`` (LangGraph's idiom) with reducers only where nodes append
 replace. Keeping the state explicit makes the checkpoint human-readable in LangSmith and in
 ``/threads/{id}/state``, which is the point of an observable agent.
 """
+
 from __future__ import annotations
 
 import operator

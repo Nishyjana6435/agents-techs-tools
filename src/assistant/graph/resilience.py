@@ -10,6 +10,7 @@ degraded; response -> honest "I could not generate an answer" message).
 Together with the bounded rewrite loop and tool-level timeouts, this makes every failure mode
 in the brief (LLM, vector DB, MCP, tool timeout, invalid request) observable and non-fatal.
 """
+
 from __future__ import annotations
 
 import functools
@@ -27,7 +28,9 @@ log = get_logger(__name__)
 NodeFn = Callable[[AssistantState], Awaitable[dict[str, Any]]]
 
 
-def resilient(name: str, fallback: Callable[[AssistantState, Exception], dict[str, Any]]) -> Callable[[NodeFn], NodeFn]:
+def resilient(
+    name: str, fallback: Callable[[AssistantState, Exception], dict[str, Any]]
+) -> Callable[[NodeFn], NodeFn]:
     def decorator(fn: NodeFn) -> NodeFn:
         @functools.wraps(fn)
         async def wrapper(state: AssistantState) -> dict[str, Any]:
@@ -36,7 +39,7 @@ def resilient(name: str, fallback: Callable[[AssistantState, Exception], dict[st
                 update = await fn(state)
             except GraphInterrupt:
                 raise  # human-in-the-loop pauses must propagate untouched
-            except Exception as exc:  # noqa: BLE001 - contain everything else
+            except Exception as exc:
                 log.exception("node_failed", node=name)
                 message = f"{exc.__class__.__name__}: {str(exc)[:200]}"
                 emit("error", name, f"{name} failed, applying fallback: {message}")

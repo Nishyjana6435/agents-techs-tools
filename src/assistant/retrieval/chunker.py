@@ -5,6 +5,7 @@ runbooks/incident reports), then split any oversized section into overlapping wi
 Every chunk keeps its document title and section heading in metadata so citations can point at
 "INC-2025-0419 > Root cause" rather than a bare chunk id.
 """
+
 from __future__ import annotations
 
 import hashlib

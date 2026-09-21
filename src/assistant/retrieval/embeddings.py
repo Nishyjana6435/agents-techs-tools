@@ -9,10 +9,12 @@
 
 All providers return L2-normalised vectors so cosine similarity == dot product.
 """
+
 from __future__ import annotations
 
 import asyncio
 import hashlib
+import itertools
 import re
 from typing import Protocol
 
@@ -50,7 +52,7 @@ class LocalHashEmbedder:
     def _embed_one(self, text: str) -> np.ndarray:
         vec = np.zeros(self.dim, dtype=np.float32)
         tokens = self._token_re.findall(text.lower())
-        grams = tokens + [f"{a}_{b}" for a, b in zip(tokens, tokens[1:])]
+        grams = tokens + [f"{a}_{b}" for a, b in itertools.pairwise(tokens)]
         for g in grams:
             h = int(hashlib.blake2b(g.encode(), digest_size=8).hexdigest(), 16)
             idx = h % self.dim
@@ -117,5 +119,7 @@ def build_embedder(settings: Settings | None = None) -> Embedder:
     return LocalHashEmbedder(settings.local_embedding_dim)
 
 
-async def embed_with_timeout(embedder: Embedder, texts: list[str], timeout: float = 30.0) -> list[list[float]]:
+async def embed_with_timeout(
+    embedder: Embedder, texts: list[str], timeout: float = 30.0
+) -> list[list[float]]:
     return await asyncio.wait_for(embedder.embed(texts), timeout=timeout)

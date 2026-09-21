@@ -1,0 +1,42 @@
+# docker compose up --build
+# UI: http://localhost:8501   API: http://localhost:8000/docs   MCP: http://localhost:8100/mcp
+services:
+  mcp:
+    build: .
+    command: python -m assistant.mcp_server.server
+    environment:
+      MCP_PORT: "8100"
+    ports: ["8100:8100"]
+
+  api:
+    build: .
+    command: uvicorn assistant.api.main:app --host 0.0.0.0 --port 8000
+    env_file: [.env]
+    environment:
+      MCP_SERVER_URL: http://mcp:8100/mcp
+      LOG_JSON: "true"
+      INDEX_CACHE_DIR: /app/data/index_cache
+    volumes:
+      - index_cache:/app/data/index_cache
+      - memory:/app/data/memory
+    ports: ["8000:8000"]
+    depends_on: [mcp]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  ui:
+    build: .
+    command: streamlit run ui/streamlit_app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
+    environment:
+      API_URL: http://api:8000
+    ports: ["8501:8501"]
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  index_cache:
+  memory:

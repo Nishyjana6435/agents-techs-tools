@@ -1,4 +1,5 @@
 """Guard node: validate the incoming message and screen it for prompt injection."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -18,7 +19,12 @@ BLOCKED_MESSAGE = (
 
 
 def _fallback(state: AssistantState, exc: Exception) -> dict[str, Any]:
-    return {"route": "blocked", "blocked_reason": "guard failure", "final_answer": "Sorry, I could not process that message.", "question": ""}
+    return {
+        "route": "blocked",
+        "blocked_reason": "guard failure",
+        "final_answer": "Sorry, I could not process that message.",
+        "question": "",
+    }
 
 
 @resilient("guard", _fallback)
@@ -29,10 +35,21 @@ async def guard_node(state: AssistantState) -> dict[str, Any]:
         question = validate_user_message(raw)
     except ValidationError as exc:
         emit("security", "guard", f"input rejected: {exc}")
-        return {"route": "blocked", "blocked_reason": str(exc), "final_answer": f"Invalid request: {exc}", "messages": [AIMessage(content=f"Invalid request: {exc}")], "question": ""}
+        return {
+            "route": "blocked",
+            "blocked_reason": str(exc),
+            "final_answer": f"Invalid request: {exc}",
+            "messages": [AIMessage(content=f"Invalid request: {exc}")],
+            "question": "",
+        }
 
     verdict = scan_prompt_injection(question)
-    injection = {"risk": verdict.risk, "rules": verdict.matched_rules, "classes": verdict.attack_classes, "blocked": verdict.blocked}
+    injection = {
+        "risk": verdict.risk,
+        "rules": verdict.matched_rules,
+        "classes": verdict.attack_classes,
+        "blocked": verdict.blocked,
+    }
     if verdict.blocked:
         emit("security", "guard", f"BLOCKED prompt-injection attempt: {verdict.explain()}", **injection)
         return {
@@ -44,7 +61,25 @@ async def guard_node(state: AssistantState) -> dict[str, Any]:
             "messages": [AIMessage(content=BLOCKED_MESSAGE)],
         }
     if verdict.suspicious:
-        emit("security", "guard", f"suspicious input flagged (continuing with caution): {verdict.explain()}", **injection)
+        emit(
+            "security",
+            "guard",
+            f"suspicious input flagged (continuing with caution): {verdict.explain()}",
+            **injection,
+        )
     else:
         emit("security", "guard", "input validated; no injection patterns", risk=verdict.risk)
-    return {"question": question, "injection": injection, "blocked_reason": "", "pending_approval": None, "approval_decision": "", "tool_plan": [], "evidence": [], "research_findings": "", "draft_answer": "", "final_answer": "", "rewrite_count": 0, "validation": {}}
+    return {
+        "question": question,
+        "injection": injection,
+        "blocked_reason": "",
+        "pending_approval": None,
+        "approval_decision": "",
+        "tool_plan": [],
+        "evidence": [],
+        "research_findings": "",
+        "draft_answer": "",
+        "final_answer": "",
+        "rewrite_count": 0,
+        "validation": {},
+    }

@@ -9,6 +9,7 @@ Failure handling: every Pinecone call is wrapped with a timeout and converted in
 ``VectorStoreError``; the hybrid retriever catches that and degrades to sparse-only search
 while flagging ``degraded=True`` for the activity panel.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -87,7 +88,7 @@ class InMemoryStore:
 
     async def upsert(self, chunks: list[Chunk], vectors: list[list[float]]) -> None:
         by_ns: dict[str, list[tuple[Chunk, list[float]]]] = {}
-        for c, v in zip(chunks, vectors):
+        for c, v in zip(chunks, vectors, strict=True):
             by_ns.setdefault(c.namespace, []).append((c, v))
         for ns, items in by_ns.items():
             self._ids[ns] = [c.chunk_id for c, _ in items]
@@ -142,12 +143,12 @@ class PineconeStore:
             return await asyncio.wait_for(asyncio.to_thread(fn, *args, **kwargs), timeout=self._timeout)
         except TimeoutError as exc:
             raise VectorStoreError("Pinecone call timed out") from exc
-        except Exception as exc:  # noqa: BLE001 - normalise SDK exceptions
+        except Exception as exc:
             raise VectorStoreError(f"Pinecone error: {exc.__class__.__name__}: {exc}") from exc
 
     async def upsert(self, chunks: list[Chunk], vectors: list[list[float]]) -> None:
         by_ns: dict[str, list[dict[str, Any]]] = {}
-        for c, v in zip(chunks, vectors):
+        for c, v in zip(chunks, vectors, strict=True):
             by_ns.setdefault(c.namespace, []).append({"id": c.chunk_id, "values": v, "metadata": c.metadata})
         for ns, items in by_ns.items():
             for i in range(0, len(items), 100):
@@ -179,7 +180,11 @@ class PineconeStore:
 
     async def count(self) -> int:
         stats = await self._call(self._index.describe_index_stats)
-        total = stats.get("total_vector_count", 0) if isinstance(stats, dict) else getattr(stats, "total_vector_count", 0)
+        total = (
+            stats.get("total_vector_count", 0)
+            if isinstance(stats, dict)
+            else getattr(stats, "total_vector_count", 0)
+        )
         return int(total)
 
 
@@ -188,7 +193,7 @@ def build_vector_store(dim: int, settings: Settings | None = None) -> VectorStor
     if settings.pinecone_enabled:
         try:
             return PineconeStore(settings, dim)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.error("pinecone_unavailable_falling_back", error=str(exc))
     else:
         log.warning("pinecone_not_configured", using="in-memory")

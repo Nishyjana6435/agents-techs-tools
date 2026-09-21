@@ -1,17 +1,36 @@
 {
   "username": "admin",
   "topics": {
-    "incidents": 1
+    "incidents": 1,
+    "security": 1,
+    "runbooks": 1
   },
-  "departments": {},
+  "departments": {
+    "compliance": 1,
+    "payments": 1,
+    "security": 1
+  },
   "recent_questions": [
+    "Escalate INC-2025-0603 please",
+    "Escalate INC-2025-0603 please",
+    "Escalate INC-2025-0603 please",
+    "Escalate INC-2025-0603 please",
+    "What is the procedure for certificate rotation?",
     "Escalate INC-2025-0112 please",
     "Please escalate INC-2025-0419 to the reliability review, root cause recurring"
   ],
-  "feedback": [],
+  "feedback": [
+    {
+      "thread_id": "api-t1",
+      "run_id": "6e553264-2734-43a0-bcbe-45344839c4e9",
+      "score": 1,
+      "comment": "good",
+      "at": "2026-09-21T08:47:30+00:00"
+    }
+  ],
   "preferences": {
     "answer_style": "concise"
   },
-  "turns": 2,
-  "last_seen": "2026-09-21T08:46:59+00:00"
+  "turns": 7,
+  "last_seen": "2026-09-21T08:51:42+00:00"
 }

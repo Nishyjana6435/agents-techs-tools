@@ -12,18 +12,24 @@ Three layers, each independently testable:
 
 See docs/SECURITY.md for the threat model and rationale.
 """
+
 from assistant.security.injection import InjectionVerdict, sanitize_retrieved_text, scan_prompt_injection
 from assistant.security.output_guard import GuardReport, check_response
-from assistant.security.validation import ValidationError, validate_retrieved_chunk, validate_tool_params, validate_user_message
+from assistant.security.validation import (
+    ValidationError,
+    validate_retrieved_chunk,
+    validate_tool_params,
+    validate_user_message,
+)
 
 __all__ = [
-    "InjectionVerdict",
-    "scan_prompt_injection",
-    "sanitize_retrieved_text",
     "GuardReport",
-    "check_response",
+    "InjectionVerdict",
     "ValidationError",
-    "validate_user_message",
-    "validate_tool_params",
+    "check_response",
+    "sanitize_retrieved_text",
+    "scan_prompt_injection",
     "validate_retrieved_chunk",
+    "validate_tool_params",
+    "validate_user_message",
 ]

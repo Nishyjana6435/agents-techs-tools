@@ -43,7 +43,9 @@ async def chat(body: ChatRequest, user: UserContext = Depends(rate_limited)) -> 
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
     thread_id = body.thread_id or f"{user.username}-{uuid.uuid4().hex[:10]}"
     _thread_owner_check(thread_id, user)
-    return StreamingResponse(stream_chat(user, thread_id, message=message), media_type="text/event-stream", headers=SSE_HEADERS)
+    return StreamingResponse(
+        stream_chat(user, thread_id, message=message), media_type="text/event-stream", headers=SSE_HEADERS
+    )
 
 
 @router.post("/chat/resume")
@@ -52,7 +54,11 @@ async def resume(body: ResumeRequest, user: UserContext = Depends(rate_limited))
     state = get_graph().get_state({"configurable": {"thread_id": body.thread_id}})
     if not state.tasks or not any(getattr(t, "interrupts", None) for t in state.tasks):
         raise HTTPException(status.HTTP_409_CONFLICT, "No pending approval on this thread")
-    return StreamingResponse(stream_chat(user, body.thread_id, resume=body.decision), media_type="text/event-stream", headers=SSE_HEADERS)
+    return StreamingResponse(
+        stream_chat(user, body.thread_id, resume=body.decision),
+        media_type="text/event-stream",
+        headers=SSE_HEADERS,
+    )
 
 
 @router.get("/threads/{thread_id}")
@@ -62,7 +68,10 @@ async def thread_state(thread_id: str, user: UserContext = Depends(get_current_u
     values = snapshot.values or {}
     return {
         "thread_id": thread_id,
-        "messages": [{"role": m.type, "content": m.content if isinstance(m.content, str) else str(m.content)} for m in values.get("messages", [])],
+        "messages": [
+            {"role": m.type, "content": m.content if isinstance(m.content, str) else str(m.content)}
+            for m in values.get("messages", [])
+        ],
         "conversation_summary": values.get("conversation_summary", ""),
         "route": values.get("route"),
         "node_path": values.get("node_path", []),

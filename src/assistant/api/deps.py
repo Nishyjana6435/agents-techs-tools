@@ -1,4 +1,5 @@
 """Request dependencies: authentication, RBAC helpers and rate limiting."""
+
 from __future__ import annotations
 
 from functools import lru_cache
@@ -25,7 +26,9 @@ def get_login_limiter() -> RateLimiter:
 
 async def get_current_user(authorization: str | None = Header(default=None)) -> UserContext:
     if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing bearer token", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Missing bearer token", headers={"WWW-Authenticate": "Bearer"}
+        )
     token = authorization.split(" ", 1)[1].strip()
     try:
         return decode_token(token)
@@ -38,7 +41,9 @@ async def get_current_user(authorization: str | None = Header(default=None)) -> 
 def require_permission(permission: Permission):
     async def checker(user: UserContext = Depends(get_current_user)) -> UserContext:
         if not is_allowed(user.role, permission):
-            raise HTTPException(status.HTTP_403_FORBIDDEN, f"Role '{user.role.value}' lacks permission '{permission.value}'")
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, f"Role '{user.role.value}' lacks permission '{permission.value}'"
+            )
         return user
 
     return checker
@@ -52,7 +57,10 @@ async def rate_limited(request: Request, user: UserContext = Depends(get_current
         retry = max(1, int(decision.retry_after_seconds + 0.999))
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={"message": "Rate limit exceeded. Please wait before sending another message.", "retry_after_seconds": retry},
+            detail={
+                "message": "Rate limit exceeded. Please wait before sending another message.",
+                "retry_after_seconds": retry,
+            },
             headers={"Retry-After": str(retry)},
         )
     return user

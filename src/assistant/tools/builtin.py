@@ -1,4 +1,5 @@
 """Built-in tools: knowledge search, python analysis, and admin actions."""
+
 from __future__ import annotations
 
 import asyncio
@@ -21,8 +22,13 @@ log = get_logger(__name__)
 # ------------------------------------------------------------------------------- knowledge search
 class KnowledgeSearchParams(BaseModel):
     query: str = Field(min_length=2, max_length=500, description="Natural language search query")
-    department: str | None = Field(default=None, max_length=50, description="Restrict to one department namespace")
-    document_types: list[str] | None = Field(default=None, description="e.g. ['incident','runbook','policy','architecture','product_spec','meeting_notes']")
+    department: str | None = Field(
+        default=None, max_length=50, description="Restrict to one department namespace"
+    )
+    document_types: list[str] | None = Field(
+        default=None,
+        description="e.g. ['incident','runbook','policy','architecture','product_spec','meeting_notes']",
+    )
     created_after: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     created_before: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     top_k: int = Field(default=8, ge=1, le=20)
@@ -72,15 +78,25 @@ async def knowledge_search(params: KnowledgeSearchParams, user: UserContext) -> 
 
 # ------------------------------------------------------------------------------- python analysis
 class PythonAnalysisParams(BaseModel):
-    code: str = Field(min_length=1, max_length=6000, description="Python code. Input is available as `data`; assign the output to `result`.")
+    code: str = Field(
+        min_length=1,
+        max_length=6000,
+        description="Python code. Input is available as `data`; assign the output to `result`.",
+    )
     data: Any = Field(default=None, description="JSON-serialisable input data made available as `data`")
-    purpose: str = Field(default="", max_length=200, description="One line explaining what the analysis computes (for the audit trail)")
+    purpose: str = Field(
+        default="",
+        max_length=200,
+        description="One line explaining what the analysis computes (for the audit trail)",
+    )
 
 
 async def python_analysis(params: PythonAnalysisParams, user: UserContext) -> dict[str, Any]:
     settings = get_settings()
     # UnsafeCodeError is a ValueError: the registry reports it as a clean rejection, not a crash.
-    out = await run_analysis_subprocess(params.code, params.data, timeout=settings.python_tool_timeout_seconds)
+    out = await run_analysis_subprocess(
+        params.code, params.data, timeout=settings.python_tool_timeout_seconds
+    )
     return {"purpose": params.purpose, **out}
 
 

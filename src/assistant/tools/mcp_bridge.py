@@ -9,6 +9,7 @@ Connection mode is decided by ``Settings.mcp_server_url``: ``None`` means in-pro
 Every call opens a fresh session with a timeout; if the server is down the tool returns a
 structured error and the graph carries on without it.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,7 +26,14 @@ from assistant.tools.registry import ToolRegistry, ToolSpec
 
 log = get_logger(__name__)
 
-_JSON_TYPES: dict[str, type] = {"string": str, "integer": int, "number": float, "boolean": bool, "array": list, "object": dict}
+_JSON_TYPES: dict[str, type] = {
+    "string": str,
+    "integer": int,
+    "number": float,
+    "boolean": bool,
+    "array": list,
+    "object": dict,
+}
 
 
 def _model_from_schema(name: str, schema: dict[str, Any]) -> type[BaseModel]:
@@ -37,7 +45,9 @@ def _model_from_schema(name: str, schema: dict[str, Any]) -> type[BaseModel]:
         if isinstance(json_type, list):  # e.g. ["string", "null"]
             json_type = next((t for t in json_type if t != "null"), "string")
         if json_type is None and "anyOf" in spec:
-            json_type = next((o.get("type") for o in spec["anyOf"] if o.get("type") not in (None, "null")), "string")
+            json_type = next(
+                (o.get("type") for o in spec["anyOf"] if o.get("type") not in (None, "null")), "string"
+            )
         py = _JSON_TYPES.get(json_type, str)
         desc = spec.get("description", "")
         if prop in required:
@@ -97,16 +107,24 @@ async def register_mcp_tools(reg: ToolRegistry) -> int:
     settings = get_settings()
     try:
         tools = await asyncio.wait_for(list_mcp_tools(), timeout=settings.tool_timeout_seconds)
-    except Exception as exc:  # noqa: BLE001
-        log.error("mcp_discovery_failed", error=str(exc)[:200], mode="http" if settings.mcp_server_url else "in-process")
+    except Exception as exc:
+        log.error(
+            "mcp_discovery_failed",
+            error=str(exc)[:200],
+            mode="http" if settings.mcp_server_url else "in-process",
+        )
         return 0
     for t in tools:
         reg.register(
             ToolSpec(
                 name=f"mcp.{t.name}",
-                description=(t.description or "").strip().splitlines()[0] if t.description else f"MCP tool {t.name}",
+                description=(t.description or "").strip().splitlines()[0]
+                if t.description
+                else f"MCP tool {t.name}",
                 permission=Permission.MCP_TOOLS,
-                params_schema=_model_from_schema(t.name, t.inputSchema if hasattr(t, "inputSchema") else t.input_schema),
+                params_schema=_model_from_schema(
+                    t.name, t.inputSchema if hasattr(t, "inputSchema") else t.input_schema
+                ),
                 handler=_make_handler(t.name),
                 category="mcp",
             )

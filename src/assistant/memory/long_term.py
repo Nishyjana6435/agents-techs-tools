@@ -42,13 +42,23 @@ class LongTermMemory:
                 return json.loads(path.read_text())
             except json.JSONDecodeError:
                 log.warning("long_term_memory_corrupt", user=username)
-        return {"username": username, "topics": {}, "departments": {}, "recent_questions": [], "feedback": [], "preferences": {}, "turns": 0}
+        return {
+            "username": username,
+            "topics": {},
+            "departments": {},
+            "recent_questions": [],
+            "feedback": [],
+            "preferences": {},
+            "turns": 0,
+        }
 
     async def get(self, username: str) -> dict[str, Any]:
         async with self._lock:
             return self._load(username)
 
-    async def record_turn(self, username: str, question: str, departments: list[str], answer_style: str | None = None) -> dict[str, Any]:
+    async def record_turn(
+        self, username: str, question: str, departments: list[str], answer_style: str | None = None
+    ) -> dict[str, Any]:
         """Update the profile after a turn. Returns the list of memory updates for the activity panel."""
         async with self._lock:
             profile = self._load(username)
@@ -70,10 +80,23 @@ class LongTermMemory:
             self._path(username).write_text(json.dumps(profile, indent=2))
             return {"profile": profile, "updates": updates or ["recent_questions updated"]}
 
-    async def record_feedback(self, username: str, thread_id: str, run_id: str | None, score: int, comment: str = "") -> None:
+    async def record_feedback(
+        self, username: str, thread_id: str, run_id: str | None, score: int, comment: str = ""
+    ) -> None:
         async with self._lock:
             profile = self._load(username)
-            profile["feedback"] = ([{"thread_id": thread_id, "run_id": run_id, "score": score, "comment": comment[:300], "at": datetime.now(UTC).isoformat(timespec="seconds")}] + profile["feedback"])[:50]
+            profile["feedback"] = (
+                [
+                    {
+                        "thread_id": thread_id,
+                        "run_id": run_id,
+                        "score": score,
+                        "comment": comment[:300],
+                        "at": datetime.now(UTC).isoformat(timespec="seconds"),
+                    }
+                ]
+                + profile["feedback"]
+            )[:50]
             self._path(username).write_text(json.dumps(profile, indent=2))
 
     @staticmethod

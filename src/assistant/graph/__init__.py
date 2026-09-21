@@ -20,6 +20,7 @@ Nodes (each in ``nodes/``), in the order a typical request flows:
 Every node emits ``ActivityEvent``s through LangGraph's custom stream so the UI shows what the
 agent is doing in real time, and every node is a LangSmith span.
 """
+
 from assistant.graph.builder import build_graph, get_graph
 
 __all__ = ["build_graph", "get_graph"]

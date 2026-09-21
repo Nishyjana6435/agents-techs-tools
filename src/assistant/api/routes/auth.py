@@ -27,13 +27,19 @@ async def login(body: LoginRequest, request: Request) -> LoginResponse:
     ip = request.client.host if request.client else "unknown"
     decision = await get_login_limiter().check(f"login:{ip}")
     if not decision.allowed:
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Too many login attempts", headers={"Retry-After": str(int(decision.retry_after_seconds) + 1)})
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many login attempts",
+            headers={"Retry-After": str(int(decision.retry_after_seconds) + 1)},
+        )
     user = authenticate(body.username, body.password)
     if user is None:
         log.warning("login_failed", username=body.username, ip=ip)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
     log.info("login_ok", username=user.username, role=user.role.value)
-    return LoginResponse(token=create_token(user), user=user, permissions=sorted(p.value for p in permissions_for(user.role)))
+    return LoginResponse(
+        token=create_token(user), user=user, permissions=sorted(p.value for p in permissions_for(user.role))
+    )
 
 
 @router.get("/me")

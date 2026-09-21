@@ -89,14 +89,22 @@ class ToolRegistry:
         spec = self._tools.get(name)
         return bool(spec) and is_allowed(user.role, spec.permission)
 
-    async def execute(self, name: str, params: dict[str, Any], user: UserContext, *, approved: bool = False) -> ToolResult:
+    async def execute(
+        self, name: str, params: dict[str, Any], user: UserContext, *, approved: bool = False
+    ) -> ToolResult:
         started = time.perf_counter()
         spec = self._tools.get(name)
         result: ToolResult
         if spec is None:
             result = ToolResult(tool=name, ok=False, error=f"Unknown tool '{name}'", params=params)
         elif not is_allowed(user.role, spec.permission):
-            log.warning("tool_denied", tool=name, user=user.username, role=user.role.value, needs=spec.permission.value)
+            log.warning(
+                "tool_denied",
+                tool=name,
+                user=user.username,
+                role=user.role.value,
+                needs=spec.permission.value,
+            )
             result = ToolResult(
                 tool=name,
                 ok=False,
@@ -105,12 +113,26 @@ class ToolRegistry:
                 params=params,
             )
         elif spec.requires_approval and not approved:
-            result = ToolResult(tool=name, ok=False, needs_approval=True, error="Human approval required before execution.", params=params)
+            result = ToolResult(
+                tool=name,
+                ok=False,
+                needs_approval=True,
+                error="Human approval required before execution.",
+                params=params,
+            )
         else:
             result = await self._run(spec, params, user)
         result.duration_ms = int((time.perf_counter() - started) * 1000)
         self.audit_log.append(
-            {"ts": time.time(), "user": user.username, "role": user.role.value, "tool": name, "ok": result.ok, "denied": result.denied, "error": result.error}
+            {
+                "ts": time.time(),
+                "user": user.username,
+                "role": user.role.value,
+                "tool": name,
+                "ok": result.ok,
+                "denied": result.denied,
+                "error": result.error,
+            }
         )
         return result
 
@@ -125,14 +147,29 @@ class ToolRegistry:
             return ToolResult(tool=spec.name, ok=True, output=output, params=validated.model_dump())
         except TimeoutError:
             log.error("tool_timeout", tool=spec.name, timeout=timeout)
-            return ToolResult(tool=spec.name, ok=False, error=f"Tool '{spec.name}' timed out after {timeout:.0f}s", params=params)
+            return ToolResult(
+                tool=spec.name,
+                ok=False,
+                error=f"Tool '{spec.name}' timed out after {timeout:.0f}s",
+                params=params,
+            )
         except ValueError as exc:
             # Expected rejections (sandbox policy, bad identifiers) - no traceback needed.
             log.warning("tool_rejected", tool=spec.name, error=str(exc)[:200])
-            return ToolResult(tool=spec.name, ok=False, error=f"Tool '{spec.name}' rejected the request: {exc}", params=params)
-        except Exception as exc:  # noqa: BLE001 - tools are untrusted code paths; contain everything
+            return ToolResult(
+                tool=spec.name,
+                ok=False,
+                error=f"Tool '{spec.name}' rejected the request: {exc}",
+                params=params,
+            )
+        except Exception as exc:
             log.exception("tool_failed", tool=spec.name)
-            return ToolResult(tool=spec.name, ok=False, error=f"Tool '{spec.name}' failed: {exc.__class__.__name__}: {exc}", params=params)
+            return ToolResult(
+                tool=spec.name,
+                ok=False,
+                error=f"Tool '{spec.name}' failed: {exc.__class__.__name__}: {exc}",
+                params=params,
+            )
 
 
 _registry: ToolRegistry | None = None

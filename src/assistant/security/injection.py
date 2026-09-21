@@ -15,6 +15,7 @@ Approach (defence in depth, documented in docs/SECURITY.md):
 Scoring: each matched rule contributes a weight; ``risk`` is the clipped sum. Callers decide the
 threshold (the supervisor blocks at >= 0.7 and warns in the trace at >= 0.4).
 """
+
 from __future__ import annotations
 
 import re
@@ -38,24 +39,89 @@ def _r(name: str, cls: AttackClass, pattern: str, weight: float) -> Rule:
 
 RULES: list[Rule] = [
     # --- Instruction override ---------------------------------------------------------------
-    _r("ignore_previous", "instruction_override", r"\b(ignore|disregard|forget)\b.{0,40}\b(previous|prior|above|earlier|all)\b.{0,30}\b(instructions?|prompts?|rules?)", 0.7),
-    _r("new_instructions", "instruction_override", r"\b(your|the) (new|real|actual|true) (instructions?|task|role|goal|objective)\b", 0.6),
+    _r(
+        "ignore_previous",
+        "instruction_override",
+        r"\b(ignore|disregard|forget)\b.{0,40}\b(previous|prior|above|earlier|all)\b.{0,30}\b(instructions?|prompts?|rules?)",
+        0.7,
+    ),
+    _r(
+        "new_instructions",
+        "instruction_override",
+        r"\b(your|the) (new|real|actual|true) (instructions?|task|role|goal|objective)\b",
+        0.6,
+    ),
     _r("system_prompt_marker", "instruction_override", r"(^|\n)\s*(system|assistant)\s*:", 0.4),
-    _r("fake_delimiters", "instruction_override", r"(<\s*/?\s*(system|instructions?|admin)\s*>|\[\s*(system|inst)\s*\]|###\s*(system|instruction))", 0.5),
-    _r("override_verbs", "instruction_override", r"\b(override|bypass|disable|turn off)\b.{0,30}\b(safety|guardrails?|filters?|restrictions?|policy|policies|rbac|permissions?)\b", 0.8),
+    _r(
+        "fake_delimiters",
+        "instruction_override",
+        r"(<\s*/?\s*(system|instructions?|admin)\s*>|\[\s*(system|inst)\s*\]|###\s*(system|instruction))",
+        0.5,
+    ),
+    _r(
+        "override_verbs",
+        "instruction_override",
+        r"\b(override|bypass|disable|turn off)\b.{0,30}\b(safety|guardrails?|filters?|restrictions?|policy|policies|rbac|permissions?)\b",
+        0.8,
+    ),
     # --- Role-play / jailbreak framing -------------------------------------------------------------
-    _r("dan_style", "role_play_jailbreak", r"\b(you are now|from now on you are|pretend (to be|you are)|act as)\b.{0,60}\b(unrestricted|no (rules|limits|restrictions)|jailbroken|developer mode|dan)\b", 0.7),
-    _r("hypothetical_unlock", "role_play_jailbreak", r"\b(hypothetically|in a fictional world|for a story)\b.{0,80}\b(reveal|leak|bypass|ignore)\b", 0.4),
+    _r(
+        "dan_style",
+        "role_play_jailbreak",
+        r"\b(you are now|from now on you are|pretend (to be|you are)|act as)\b.{0,60}\b(unrestricted|no (rules|limits|restrictions)|jailbroken|developer mode|dan)\b",
+        0.7,
+    ),
+    _r(
+        "hypothetical_unlock",
+        "role_play_jailbreak",
+        r"\b(hypothetically|in a fictional world|for a story)\b.{0,80}\b(reveal|leak|bypass|ignore)\b",
+        0.4,
+    ),
     # --- Data exfiltration --------------------------------------------------------------------------
-    _r("reveal_system_prompt", "data_exfiltration", r"\b(reveal|show|print|repeat|dump|display|tell me)\b.{0,30}\b(your|the|this|its|all)\s+(system prompt|hidden prompt|initial prompt|instructions|configuration|api keys?|secrets?|credentials?|passwords?)", 0.8),
-    _r("exfil_to_url", "data_exfiltration", r"\b(send|post|upload|transmit|forward|email)\b.{0,60}\b(to|at)\b.{0,10}(https?://|\S+@\S+\.\S+|webhook)", 0.8),
+    _r(
+        "reveal_system_prompt",
+        "data_exfiltration",
+        r"\b(reveal|show|print|repeat|dump|display|tell me)\b.{0,30}\b(your|the|this|its|all)\s+(system prompt|hidden prompt|initial prompt|instructions|configuration|api keys?|secrets?|credentials?|passwords?)",
+        0.8,
+    ),
+    _r(
+        "exfil_to_url",
+        "data_exfiltration",
+        r"\b(send|post|upload|transmit|forward|email)\b.{0,60}\b(to|at)\b.{0,10}(https?://|\S+@\S+\.\S+|webhook)",
+        0.8,
+    ),
     _r("markdown_image_exfil", "data_exfiltration", r"!\[[^\]]*\]\(https?://[^)]*\?[^)]*\)", 0.7),
-    _r("dump_all_docs", "data_exfiltration", r"\b(list|dump|export|print)\b.{0,20}\b(all|every)\b.{0,20}\b(documents?|records?|customers?|employees?|passwords?|accounts?)\b.{0,30}\b(verbatim|in full|raw|complete)", 0.5),
+    _r(
+        "dump_all_docs",
+        "data_exfiltration",
+        r"\b(list|dump|export|print)\b.{0,20}\b(all|every)\b.{0,20}\b(documents?|records?|customers?|employees?|passwords?|accounts?)\b.{0,30}\b(verbatim|in full|raw|complete)",
+        0.5,
+    ),
     # --- Tool abuse -----------------------------------------------------------------------------------
-    _r("escalate_privileges", "tool_abuse", r"\b(grant|give|elevate|escalate|make)\b.{0,30}\b(me|my|user)\b.{0,30}\b(admin|administrator|root|superuser|all permissions)\b", 0.8),
-    _r("call_tool_as_role", "tool_abuse", r"\b(call|invoke|run|execute|use)\b.{0,40}\b(tool|function)\b.{0,60}\b(as|with) (admin|administrator|elevated|root)\b", 0.8),
-    _r("dangerous_python", "tool_abuse", r"\b(os\.system|subprocess|__import__|open\(|eval\(|exec\(|shutil\.rmtree|socket\.|requests\.(get|post))", 0.6),
-    _r("delete_everything", "tool_abuse", r"\b(delete|drop|wipe|erase|truncate)\b.{0,30}\b(all|every|entire|whole)\b.{0,30}\b(records?|tables?|index|database|documents?|namespace)", 0.6),
+    _r(
+        "escalate_privileges",
+        "tool_abuse",
+        r"\b(grant|give|elevate|escalate|make)\b.{0,30}\b(me|my|user)\b.{0,30}\b(admin|administrator|root|superuser|all permissions)\b",
+        0.8,
+    ),
+    _r(
+        "call_tool_as_role",
+        "tool_abuse",
+        r"\b(call|invoke|run|execute|use)\b.{0,40}\b(tool|function)\b.{0,60}\b(as|with) (admin|administrator|elevated|root)\b",
+        0.8,
+    ),
+    _r(
+        "dangerous_python",
+        "tool_abuse",
+        r"\b(os\.system|subprocess|__import__|open\(|eval\(|exec\(|shutil\.rmtree|socket\.|requests\.(get|post))",
+        0.6,
+    ),
+    _r(
+        "delete_everything",
+        "tool_abuse",
+        r"\b(delete|drop|wipe|erase|truncate)\b.{0,30}\b(all|every|entire|whole)\b.{0,30}\b(records?|tables?|index|database|documents?|namespace)",
+        0.6,
+    ),
 ]
 
 
@@ -90,7 +156,7 @@ def scan_prompt_injection(text: str) -> InjectionVerdict:
 
 
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
-_INVISIBLE = re.compile(r"[​-‏‪-‮⁠-⁤﻿]")
+_INVISIBLE = re.compile("[\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff]")
 
 
 def sanitize_retrieved_text(text: str) -> str:

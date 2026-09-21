@@ -10,6 +10,7 @@ questions quickly) without letting a single user monopolise the LLM budget over 
 Implementation is in-process and async-safe. In a multi-replica deployment the same interface
 would be backed by Redis (``INCR``/Lua) - the ``RateLimiter`` abstraction keeps that swap local.
 """
+
 from __future__ import annotations
 
 import asyncio
