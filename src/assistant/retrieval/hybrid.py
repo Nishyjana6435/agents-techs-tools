@@ -79,7 +79,9 @@ class HybridRetriever:
             vector = (await embed_with_timeout(self.embedder, [query], timeout=20))[0]
         except Exception as exc:
             log.warning("dense_search_embedding_failed", error=f"{exc.__class__.__name__}: {str(exc)[:200]}")
-            notes.append(f"embedding failed ({exc.__class__.__name__}: {str(exc)[:80]}); dense search skipped")
+            notes.append(
+                f"embedding failed ({exc.__class__.__name__}: {str(exc)[:80]}); dense search skipped"
+            )
             return {}, notes
 
         async def one(ns: str):

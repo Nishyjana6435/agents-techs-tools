@@ -63,8 +63,13 @@ async def rerank(
             RerankScores,
         )
         scores = list(result.scores)
-        if len(scores) != len(candidates):
+        if abs(len(scores) - len(candidates)) > 2:
             raise LLMError(f"rerank returned {len(scores)} scores for {len(candidates)} candidates")
+        if len(scores) != len(candidates):
+            # Models occasionally drop or duplicate one entry; pad with a neutral grade / truncate rather
+            # than discarding the whole rerank.
+            log.warning("rerank_count_mismatch", scores=len(scores), candidates=len(candidates))
+            scores = (scores + [5.0] * len(candidates))[: len(candidates)]
     except LLMError as exc:
         log.warning("rerank_fallback_lexical", error=str(exc)[:160])
         method = "lexical-fallback"

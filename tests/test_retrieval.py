@@ -7,19 +7,25 @@ from assistant.retrieval.vector_store import matches_filter
 
 
 def test_filter_interpreter():
-    meta = {"access_level": "confidential", "document_type": "incident", "created_date": "2025-04-19"}
+    meta = {
+        "access_level": "confidential",
+        "document_type": "incident",
+        "created_date": "2025-04-19",
+        "created_ts": 20250419,
+    }
     assert matches_filter(meta, {"access_level": {"$in": ["internal", "confidential"]}})
     assert not matches_filter(meta, {"access_level": {"$in": ["public", "internal"]}})
     assert matches_filter(
-        meta, {"$and": [{"document_type": {"$eq": "incident"}}, {"created_date": {"$gte": "2025-01-01"}}]}
+        meta, {"$and": [{"document_type": {"$eq": "incident"}}, {"created_ts": {"$gte": 20250101}}]}
     )
-    assert not matches_filter(meta, {"created_date": {"$lte": "2025-01-01"}})
+    assert not matches_filter(meta, {"created_ts": {"$lte": 20250101}})
 
 
 def test_search_filters_to_pinecone_syntax():
     f = SearchFilters(document_types=["incident"], created_after="2025-01-01")
     flt = f.to_metadata_filter(["public", "internal"])
     assert "$and" in flt and {"access_level": {"$in": ["public", "internal"]}} in flt["$and"]
+    assert {"created_ts": {"$gte": 20250101}} in flt["$and"]  # Pinecone range operators need numbers
 
 
 def test_chunker_splits_sections_and_windows():

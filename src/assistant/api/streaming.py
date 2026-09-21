@@ -56,7 +56,9 @@ async def _trace_url(run_id: str) -> str | None:
                 project = client.read_project(project_name=settings.langsmith_project)
                 return f"{client._host_url}/o/{client._get_tenant_id()}/projects/p/{project.id}"
 
-            _project_url_cache[settings.langsmith_project] = await asyncio.wait_for(asyncio.to_thread(lookup), timeout=8)
+            _project_url_cache[settings.langsmith_project] = await asyncio.wait_for(
+                asyncio.to_thread(lookup), timeout=8
+            )
         return f"{_project_url_cache[settings.langsmith_project]}/r/{run_id}?poll=true"
     except Exception as exc:
         log.warning("trace_url_unavailable", error=str(exc)[:120])

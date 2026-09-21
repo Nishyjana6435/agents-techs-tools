@@ -71,10 +71,22 @@ def matches_filter(metadata: dict[str, Any], flt: dict[str, Any] | None) -> bool
                 return False
             if op == "$nin" and value in operand:
                 return False
-            if op == "$gte" and not (value is not None and str(value) >= str(operand)):
-                return False
-            if op == "$lte" and not (value is not None and str(value) <= str(operand)):
-                return False
+            if op in ("$gte", "$lte", "$gt", "$lt"):
+                if value is None:
+                    return False
+                # Mirror Pinecone: range operators compare numbers. Fall back to string order for legacy data.
+                try:
+                    lhs, rhs = float(value), float(operand)
+                except (TypeError, ValueError):
+                    lhs, rhs = str(value), str(operand)  # type: ignore[assignment]
+                if op == "$gte" and not lhs >= rhs:
+                    return False
+                if op == "$lte" and not lhs <= rhs:
+                    return False
+                if op == "$gt" and not lhs > rhs:
+                    return False
+                if op == "$lt" and not lhs < rhs:
+                    return False
     return True
 
 

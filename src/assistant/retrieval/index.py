@@ -23,6 +23,7 @@ from assistant.retrieval.sparse import BM25Index
 from assistant.retrieval.vector_store import build_vector_store
 
 log = get_logger(__name__)
+METADATA_SCHEMA_VERSION = 2  # bump when chunk metadata changes so the vector store is re-upserted
 
 
 class KnowledgeIndex:
@@ -38,7 +39,7 @@ class KnowledgeIndex:
     def _fingerprint(self) -> str:
         h = hashlib.sha256()
         h.update(
-            f"{self.embedder.name}:{self.embedder.dim}:{self.settings.chunk_size_chars}:{self.settings.chunk_overlap_chars}".encode()
+            f"schema:{METADATA_SCHEMA_VERSION}:{self.embedder.name}:{self.embedder.dim}:{self.settings.chunk_size_chars}:{self.settings.chunk_overlap_chars}".encode()
         )
         for path in sorted(Path(self.settings.docs_dir).glob("*.md")):
             h.update(path.name.encode())

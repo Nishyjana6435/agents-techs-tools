@@ -14,6 +14,7 @@ from pathlib import Path
 
 import frontmatter
 
+from assistant.retrieval.dates import date_to_int
 from assistant.retrieval.models import Chunk
 
 HEADING_RE = re.compile(r"^(#{1,3})\s+(.*)$", re.MULTILINE)
@@ -71,6 +72,8 @@ def load_document(path: Path, chunk_size: int, overlap: int) -> list[Chunk]:
         "document_type": meta.get("document_type", "unknown"),
         "access_level": meta.get("access_level", "internal"),
         "created_date": meta.get("created_date", ""),
+        # Pinecone range operators ($gte/$lte) only accept numbers, so dates are also stored as YYYYMMDD ints.
+        "created_ts": date_to_int(meta.get("created_date", "")),
         "source_path": str(path.name),
     }
     for extra in ("tags", "severity", "system"):

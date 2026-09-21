@@ -48,6 +48,15 @@ Use these as talking points when asked "what was hard" or "what questions did yo
 11. **Rate limiting the right thing.** Counting invalid requests against the bucket is intentional: an attacker spamming
     malformed messages should still be throttled. Login has its own per-IP bucket.
 
+12. **The first live run found what mocks cannot.** As soon as real keys were added, three defects appeared that the
+    offline fallbacks had hidden: Pinecone rejects `$gte`/`$lte` on ISO date strings (the in-memory store happily
+    compared strings), so every date-filtered dense search failed; Voyage's free tier returned 429 when the research
+    agent fired six query embeddings at once; and LangSmith returned 404 when the trace URL was read back before the
+    run was ingested. Fixes: a numeric `created_ts` mirror for range filters with a schema version that forces a
+    re-upsert, a coalescing/caching embedder wrapper with backoff, and building the trace URL locally from the
+    cached project id. Lesson: fallbacks must mirror the real service's constraints, and a rehearsal against the real
+    stack is part of the definition of done.
+
 ## Questions I had in the middle, and the assumption I made
 
 | Question | Decision |

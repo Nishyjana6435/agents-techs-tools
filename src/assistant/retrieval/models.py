@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from assistant.retrieval.dates import date_to_int
+
 
 class Chunk(BaseModel):
     """A retrievable unit. ``metadata`` is exactly what is stored alongside the vector in Pinecone."""
@@ -50,10 +52,11 @@ class SearchFilters(BaseModel):
         clauses: list[dict[str, Any]] = [{"access_level": {"$in": readable_levels}}]
         if self.document_types:
             clauses.append({"document_type": {"$in": self.document_types}})
+        # Range filters use the numeric mirror of created_date (Pinecone requires numbers for $gte/$lte).
         if self.created_after:
-            clauses.append({"created_date": {"$gte": self.created_after}})
+            clauses.append({"created_ts": {"$gte": date_to_int(self.created_after)}})
         if self.created_before:
-            clauses.append({"created_date": {"$lte": self.created_before}})
+            clauses.append({"created_ts": {"$lte": date_to_int(self.created_before)}})
         return clauses[0] if len(clauses) == 1 else {"$and": clauses}
 
     def describe(self) -> str:
