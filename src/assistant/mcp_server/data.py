@@ -1,0 +1,36 @@
+"""Dummy enterprise records served by the MCP server. Fictional people and systems."""
+from __future__ import annotations
+
+EMPLOYEES: list[dict] = [
+    {"id": "E1001", "name": "Priya Raman", "title": "Payments Platform Lead", "department": "payments", "email": "priya.raman@meridian.example", "manager": "E1005", "on_call": True},
+    {"id": "E1002", "name": "Tomasz Nowak", "title": "Senior SRE", "department": "platform_engineering", "email": "tomasz.nowak@meridian.example", "manager": "E1006", "on_call": True},
+    {"id": "E1003", "name": "Grace Okafor", "title": "Security Engineering Lead", "department": "security", "email": "grace.okafor@meridian.example", "manager": "E1006", "on_call": False},
+    {"id": "E1004", "name": "Liam Chen", "title": "Product Manager, Instant Transfers", "department": "payments", "email": "liam.chen@meridian.example", "manager": "E1005", "on_call": False},
+    {"id": "E1005", "name": "Sofia Marchetti", "title": "Head of Payments Technology", "department": "payments", "email": "sofia.marchetti@meridian.example", "manager": "E1007", "on_call": False},
+    {"id": "E1006", "name": "Daniel Adeyemi", "title": "Head of Platform Engineering", "department": "platform_engineering", "email": "daniel.adeyemi@meridian.example", "manager": "E1007", "on_call": False},
+    {"id": "E1007", "name": "Hannah Weiss", "title": "Chief Technology Officer", "department": "executive", "email": "hannah.weiss@meridian.example", "manager": None, "on_call": False},
+    {"id": "E1008", "name": "Marcus Lindqvist", "title": "Compliance Surveillance Manager", "department": "compliance", "email": "marcus.lindqvist@meridian.example", "manager": "E1007", "on_call": False},
+]
+
+SERVICES: list[dict] = [
+    {"name": "paycore-gateway", "display_name": "PayCore Gateway", "tier": "tier-1", "owner": "E1001", "department": "payments", "runbook": "RB-PAY-001", "slo_availability": "99.95%", "language": "Java", "dependencies": ["card-auth-service", "acquirer-network", "instant-payment-network"]},
+    {"name": "card-auth-service", "display_name": "Card Authorisation Service", "tier": "tier-1", "owner": "E1001", "department": "payments", "runbook": "RB-PAY-001", "slo_availability": "99.95%", "language": "Java", "dependencies": ["payments-ledger", "fraud-scoring"]},
+    {"name": "transfer-orchestrator", "display_name": "Transfer Orchestrator", "tier": "tier-1", "owner": "E1004", "department": "payments", "runbook": "RB-PAY-002", "slo_availability": "99.9%", "language": "Kotlin", "dependencies": ["payments-ledger", "instant-payment-network"]},
+    {"name": "payments-ledger", "display_name": "Payments Ledger (PostgreSQL)", "tier": "tier-0", "owner": "E1002", "department": "payments", "runbook": "RB-PAY-002", "slo_availability": "99.99%", "language": "PostgreSQL", "dependencies": []},
+    {"name": "fraud-scoring", "display_name": "Fraud Scoring API", "tier": "tier-2", "owner": "E1003", "department": "fraud_risk", "runbook": "RB-FR-010", "slo_availability": "99.5%", "language": "Python", "dependencies": []},
+    {"name": "identity-provider", "display_name": "Identity Provider (Keycloak)", "tier": "tier-1", "owner": "E1003", "department": "security", "runbook": "RB-SEC-001", "slo_availability": "99.95%", "language": "Java", "dependencies": []},
+    {"name": "knowledge-assistant", "display_name": "Enterprise Knowledge Assistant", "tier": "tier-3", "owner": "E1002", "department": "platform_engineering", "runbook": "RB-PLT-020", "slo_availability": "99.0%", "language": "Python", "dependencies": ["identity-provider"]},
+]
+
+INCIDENTS: list[dict] = [
+    {"id": "INC-2025-0112", "title": "Payment Gateway Timeouts During Morning Peak", "severity": "SEV-2", "service": "paycore-gateway", "opened": "2025-01-12", "status": "closed", "minutes": 102, "root_cause_tag": "connection-pool-exhaustion"},
+    {"id": "INC-2025-0228", "title": "Expired TLS Certificate Breaks Settlement File Transfer", "severity": "SEV-2", "service": "settlement-batch", "opened": "2025-02-28", "status": "closed", "minutes": 185, "root_cause_tag": "certificate-expiry"},
+    {"id": "INC-2025-0330", "title": "Mobile App Login Outage After Identity Provider Upgrade", "severity": "SEV-1", "service": "identity-provider", "opened": "2025-03-30", "status": "closed", "minutes": 90, "root_cause_tag": "upgrade-regression"},
+    {"id": "INC-2025-0419", "title": "Database Failover Causes Duplicate Payment Retries", "severity": "SEV-1", "service": "transfer-orchestrator", "opened": "2025-04-19", "status": "closed", "minutes": 140, "root_cause_tag": "missing-idempotency"},
+    {"id": "INC-2025-0603", "title": "Connection Pool Exhaustion in Card Authorisation Service", "severity": "SEV-2", "service": "card-auth-service", "opened": "2025-06-03", "status": "closed", "minutes": 55, "root_cause_tag": "connection-pool-exhaustion"},
+    {"id": "INC-2025-0815", "title": "Third-Party Payment Network Degradation", "severity": "SEV-2", "service": "paycore-gateway", "opened": "2025-08-15", "status": "closed", "minutes": 250, "root_cause_tag": "third-party-latency"},
+    {"id": "INC-2025-0912", "title": "Data Warehouse Nightly Load Delayed", "severity": "SEV-3", "service": "data-warehouse-loader", "opened": "2025-09-12", "status": "closed", "minutes": 300, "root_cause_tag": "schema-change"},
+    {"id": "INC-2025-1007", "title": "Ledger Database Failover During Storage Maintenance", "severity": "SEV-1", "service": "payments-ledger", "opened": "2025-10-07", "status": "closed", "minutes": 75, "root_cause_tag": "stale-connections"},
+    {"id": "INC-2025-1121", "title": "Certificate Rotation Failure Blocks Acquirer Connectivity", "severity": "SEV-2", "service": "paycore-gateway", "opened": "2025-11-21", "status": "closed", "minutes": 48, "root_cause_tag": "certificate-expiry"},
+    {"id": "INC-2026-0114", "title": "Fraud Scoring Latency Spike", "severity": "SEV-3", "service": "fraud-scoring", "opened": "2026-01-14", "status": "open", "minutes": None, "root_cause_tag": "under-investigation"},
+]

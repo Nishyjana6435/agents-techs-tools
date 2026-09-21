@@ -79,6 +79,14 @@ class MockChatModel(BaseChatModel):
         n = len(EVIDENCE_RE.findall(user)) or user.count("<evidence")
         return json.dumps({"scores": [max(1, 9 - i) for i in range(n)]})
 
+    def _task_rlm_plan(self, system: str, user: str, _: list[BaseMessage]) -> str:
+        return (
+            "plan = []\n"
+            "for q in sub_questions or [question]:\n"
+            "    plan.append({'query': q, 'document_types': ['incident'], 'department': 'payments', 'created_after': '2025-01-01'})\n"
+            "plan.append({'query': question, 'document_types': ['meeting_notes', 'architecture']})\n"
+        )
+
     def _task_rlm_batch(self, system: str, user: str, _: list[BaseMessage]) -> str:
         findings = []
         for cid, title, section, body in EVIDENCE_RE.findall(user):
@@ -106,6 +114,12 @@ class MockChatModel(BaseChatModel):
         return "\n".join(out)
 
     def _task_response(self, system: str, user: str, _: list[BaseMessage]) -> str:
+        if "## Research findings" in user:
+            findings = user.split("## Research findings", 1)[1].split("\n## ", 1)[0].strip()
+            return "Summary of the research across the retrieved incident reports:\n\n" + findings + "\n\n(Offline mock answer - configure an LLM API key for a real synthesis.)"
+        if "## Tool results" in user and "<evidence" not in user:
+            tools = user.split("## Tool results", 1)[1].split("\n## ", 1)[0].strip()
+            return "Here is what the enterprise systems returned:\n\n" + tools[:1500] + "\n\n(Offline mock answer.)"
         evidence = EVIDENCE_RE.findall(user)
         if not evidence:
             return (
