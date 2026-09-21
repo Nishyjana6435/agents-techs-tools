@@ -957,6 +957,172 @@ def qa_doc() -> list:
     return s
 
 
+# ============================================================================ Markdown -> flowables
+import re as _re
+
+
+def _inline(text: str) -> str:
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    text = _re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+    text = _re.sub(r"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)", r"<i>\1</i>", text)
+    text = _re.sub(r"`([^`]+)`", r"<font face='Courier' size='8.5'>\1</font>", text)
+    text = _re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    return text
+
+
+def md_to_flowables(path: Path, title_level_shift: int = 0) -> list:
+    """Small Markdown converter: headings, bullets, tables, paragraphs, rules."""
+    out: list = []
+    para: list[str] = []
+    table_rows: list[list[str]] = []
+
+    def flush_para():
+        if para:
+            out.append(P(_inline(" ".join(para))))
+            para.clear()
+
+    def flush_table():
+        if table_rows:
+            ncols = max(len(r) for r in table_rows)
+            width = 17 * cm
+            first = min(5.5 * cm, width * 0.35) if ncols > 1 else width
+            widths = [first] + [(width - first) / (ncols - 1)] * (ncols - 1) if ncols > 1 else [width]
+            out.append(table([[_inline(c) for c in r] + [""] * (ncols - len(r)) for r in table_rows], widths))
+            out.append(Spacer(1, 6))
+            table_rows.clear()
+
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.rstrip()
+        if line.startswith("|"):
+            flush_para()
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if all(_re.fullmatch(r":?-{3,}:?", c) for c in cells):
+                continue
+            table_rows.append(cells)
+            continue
+        flush_table()
+        if not line.strip():
+            flush_para()
+            continue
+        if line.startswith("# "):
+            flush_para()
+            out.append(P(_inline(line[2:]), "h1" if title_level_shift == 0 else "h2"))
+        elif line.startswith("## "):
+            flush_para()
+            out.append(P(_inline(line[3:]), "h2"))
+        elif line.startswith("### "):
+            flush_para()
+            out.append(P("<b>" + _inline(line[4:]) + "</b>"))
+        elif line.strip() == "---":
+            flush_para()
+            out.append(Spacer(1, 6))
+        elif _re.match(r"^\s*[-*] ", line):
+            flush_para()
+            out.append(B(_inline(_re.sub(r"^\s*[-*] ", "", line))))
+        elif _re.match(r"^\s*\d+\. ", line):
+            flush_para()
+            out.append(B(_inline(_re.sub(r"^\s*", "", line))))
+        else:
+            para.append(line.strip())
+    flush_para()
+    flush_table()
+    return out
+
+
+LIKELY_QUESTIONS = [
+    (
+        "Walk me through what happens when a user sends a message.",
+        "UI posts to /chat with a JWT. FastAPI validates the token, consumes a rate-limit token, validates the text and opens an SSE stream. LangGraph runs the graph under the thread id: guard screens for injection, memory_load adds the user profile and any rolling summary, the supervisor emits a JSON decision (intent, route, filters, sub-questions, tool plan) that is validated in code, then retrieval / research / tools run, the response agent streams a cited answer, the validator checks it, memory_update persists. The API forwards activity events, answer tokens, interrupts and the final answer as SSE events.",
+    ),
+    (
+        "Why LangGraph rather than a simple chain or a single agent loop?",
+        "Explicit state, explicit edges and checkpoints. Each agent has one responsibility and a typed contract on the shared state, so failures are local and observable. Checkpointing gives multi-turn memory and human-in-the-loop interrupts for free, and every node is a LangSmith span.",
+    ),
+    (
+        "How do you prevent the agent from bypassing authorisation?",
+        "Three independent controls: the prompt only lists permitted tools; the supervisor node deletes any proposed tool the role lacks and emits a security event; the registry re-checks the permission at execution time and additionally requires an approval token for admin tools that only the approval node can supply after a human decision. Document access is filtered inside the vector query and BM25 predicate, then re-checked after fusion.",
+    ),
+    (
+        "Explain your hybrid retrieval and why RRF.",
+        "Dense embeddings in Pinecone capture meaning; BM25 captures exact identifiers like INC-2025-0419. Their scores live on different scales, so I fuse by rank with weighted reciprocal rank fusion, then rerank the top candidates with a listwise LLM grade. Metadata filters (department namespace, document type, date, access level) are applied in the query, not after.",
+    ),
+    (
+        "What exactly is recursive about your RLM implementation?",
+        "The research agent does not load the collection into one prompt. It plans searches as Python, explores, splits the collection into batches, calls a sub-agent per batch, then aggregates the batch findings in groups and aggregates the aggregates until one synthesis remains, bounded by a depth setting. Global evidence ids keep citations valid through the recursion.",
+    ),
+    (
+        "How do you handle prompt injection in retrieved documents?",
+        "Every candidate chunk is scanned with the same rule set as user input; suspicious chunks are quarantined and reported. Retrieved text is sanitised (invisible characters, fake role markers) and framed as data inside <evidence> tags. Even if something slipped through, RBAC, approvals and the output guard bound the damage.",
+    ),
+    (
+        "What happens if Pinecone or the LLM goes down mid-request?",
+        "Typed errors with timeouts at every boundary. Pinecone failure -> sparse-only search flagged degraded. LLM failure -> supervisor falls back to plain retrieval, reranker to lexical scoring, RLM batches are skipped individually, the response agent returns the evidence list with an honest message. The answer is marked degraded and the errors are listed in the panel and trace.",
+    ),
+    (
+        "How is memory designed and why?",
+        "Working memory is the LangGraph checkpointer per thread (also enables interrupts). Long threads get a deterministic rolling summary, deliberately not LLM-generated so it cannot fail or hallucinate. Long-term memory is a per-user profile (topics, departments, recent questions, style, feedback) persisted as JSON and rendered into prompts. Raw document text is never stored in long-term memory because of clearance.",
+    ),
+    (
+        "How would you take this to production?",
+        "Postgres checkpointer and Redis rate limiter for multiple replicas; Keycloak/OIDC for identity; container or microVM sandbox for Python; Pinecone native sparse vectors; an LLM classifier as a second injection layer; a LangSmith evaluation dataset scoring citation precision and answer quality on every change; secrets in a vault; CI running the offline test suite.",
+    ),
+    (
+        "What did you verify and what did you not?",
+        "All control flow, RBAC, guardrails, rate limiting, HITL, streaming and the UI were verified end to end with the offline providers and 34 automated tests. Real-model answer quality, Pinecone and LangSmith were wired and reviewed but need the live keys to demonstrate, which is what the demo does.",
+    ),
+]
+
+
+def interview_doc() -> list:
+    s: list = []
+    s += [
+        Spacer(1, 3 * cm),
+        P("Meridian Knowledge Assistant", "title"),
+        P("Interview preparation pack", "subtitle"),
+        Spacer(1, 0.4 * cm),
+        P(f"Version 0.1 - {date.today().isoformat()}", "subtitle"),
+        Spacer(1, 1 * cm),
+        P(
+            "Contents: 1. Demo script (spoken, 45 minutes). 2. Challenges faced while building. 3. Questions I had in the middle and the assumptions I made. "
+            "4. Likely evaluator questions with model answers. 5. The one-minute explanation for a ten-year-old."
+        ),
+        PageBreak(),
+    ]
+    s += (
+        [P("1. Demo script", "h1")]
+        + md_to_flowables(ROOT / "docs" / "DEMO_SCRIPT.md", title_level_shift=1)
+        + [PageBreak()]
+    )
+    s += (
+        [P("2 and 3. Challenges and open questions", "h1")]
+        + md_to_flowables(ROOT / "docs" / "INTERVIEW_NOTES.md", title_level_shift=1)
+        + [PageBreak()]
+    )
+    s += [P("4. Likely evaluator questions", "h1")]
+    for q, a in LIKELY_QUESTIONS:
+        s.append(KeepTogether([P(f"<b>Q. {q}</b>"), P(a, "quote")]))
+    s += [
+        P("5. Explaining it to a ten-year-old", "h1"),
+        P(
+            "Imagine a school with a giant library of rulebooks, repair manuals and reports about things that went wrong. Nobody can read all of it. "
+            "So we built a robot helper you can chat with."
+        ),
+        P(
+            "When you ask it something, first a guard checks you're not trying to trick it. Then a team-leader robot decides: is this a quick look-up, "
+            "a big research job, or does it need to phone another department? For a quick look-up, a librarian robot finds the right pages. For a big job, "
+            "the leader splits the reading between several helper robots, then combines what they found. A writer robot writes the answer and puts little "
+            "numbers next to each fact, like footnotes, so you can check the exact page. A proof-reader robot makes sure every footnote is real and nothing "
+            "secret slipped in."
+        ),
+        P(
+            "The robot only shows you pages you're allowed to see. Some people get a library card that opens more shelves. If it wants to do something "
+            "important, like ring an alarm, it stops and asks a grown-up to press Approve. And everything it does is written in a logbook, so a teacher can "
+            "see exactly how it got its answer."
+        ),
+    ]
+    return s
+
+
 if __name__ == "__main__":
     import subprocess
     import sys
@@ -964,3 +1130,4 @@ if __name__ == "__main__":
     subprocess.run([sys.executable, str(ROOT / "scripts" / "build_diagram.py")], check=True)
     build("User_Guide.pdf", "User Guide", user_guide())
     build("Questions_and_Answers.pdf", "Questions and Answers", qa_doc())
+    build("Interview_Prep.pdf", "Interview Prep", interview_doc())
