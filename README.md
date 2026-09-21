@@ -1,5 +1,8 @@
 # Meridian Knowledge Assistant
 
+<img width="3456" height="2234" alt="F60A84A2-8280-4BDC-B227-9E07FECC0D95" src="https://github.com/user-attachments/assets/5901ab4d-af80-4893-a647-1644acab43f0" />
+
+
 An enterprise-grade AI assistant for a (fictional) commercial bank, **Meridian Commercial Bank**. Employees ask
 questions in a chat window; a team of AI agents searches thousands of internal documents (policies, runbooks,
 incident reports, architecture docs, specs, meeting notes), looks up live enterprise data, explains its
