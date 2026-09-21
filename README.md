@@ -1,6 +1,7 @@
 # Meridian Knowledge Assistant
 
 <img width="3456" height="2234" alt="F60A84A2-8280-4BDC-B227-9E07FECC0D95" src="https://github.com/user-attachments/assets/5901ab4d-af80-4893-a647-1644acab43f0" />
+<img width="3456" height="2234" alt="B11D7CD8-8D46-4F48-9BC0-B2029769E0C1" src="https://github.com/user-attachments/assets/776973c0-4f3b-4b0b-87fd-8fb1ca93e62c" />
 
 
 An enterprise-grade AI assistant for a (fictional) commercial bank, **Meridian Commercial Bank**. Employees ask
