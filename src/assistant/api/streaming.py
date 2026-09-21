@@ -34,19 +34,30 @@ def sse(event: str, data: Any) -> str:
     return f"event: {event}\ndata: {json.dumps(data, default=str)}\n\n"
 
 
+_project_url_cache: dict[str, str] = {}
+
+
 async def _trace_url(run_id: str) -> str | None:
+    """Build the LangSmith run URL locally.
+
+    Traces are ingested asynchronously, so reading the run right after the turn returns 404. The
+    URL only needs the tenant and project ids, which we look up once and cache; LangSmith's UI polls
+    until the run arrives (``?poll=true``).
+    """
     settings = get_settings()
     if not settings.langsmith_enabled:
         return None
     try:
-        from langsmith import Client
+        if settings.langsmith_project not in _project_url_cache:
+            from langsmith import Client
 
-        def fetch() -> str | None:
-            client = Client(api_key=settings.langsmith_api_key)
-            run = client.read_run(run_id)
-            return client.get_run_url(run=run, project_name=settings.langsmith_project)
+            def lookup() -> str:
+                client = Client(api_key=settings.langsmith_api_key)
+                project = client.read_project(project_name=settings.langsmith_project)
+                return f"{client._host_url}/o/{client._get_tenant_id()}/projects/p/{project.id}"
 
-        return await asyncio.wait_for(asyncio.to_thread(fetch), timeout=8)
+            _project_url_cache[settings.langsmith_project] = await asyncio.wait_for(asyncio.to_thread(lookup), timeout=8)
+        return f"{_project_url_cache[settings.langsmith_project]}/r/{run_id}?poll=true"
     except Exception as exc:
         log.warning("trace_url_unavailable", error=str(exc)[:120])
         return None

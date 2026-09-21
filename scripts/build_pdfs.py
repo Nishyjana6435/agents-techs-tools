@@ -8,6 +8,7 @@ Run: ``uv run python scripts/build_pdfs.py`` (also regenerates docs/architecture
 
 from __future__ import annotations
 
+import re as _re
 from datetime import date
 from pathlib import Path
 
@@ -958,7 +959,6 @@ def qa_doc() -> list:
 
 
 # ============================================================================ Markdown -> flowables
-import re as _re
 
 
 def _inline(text: str) -> str:
@@ -975,6 +975,7 @@ def md_to_flowables(path: Path, title_level_shift: int = 0) -> list:
     out: list = []
     para: list[str] = []
     table_rows: list[list[str]] = []
+    bullet_src: list[str] = []
 
     def flush_para():
         if para:
@@ -1018,10 +1019,16 @@ def md_to_flowables(path: Path, title_level_shift: int = 0) -> list:
             out.append(Spacer(1, 6))
         elif _re.match(r"^\s*[-*] ", line):
             flush_para()
-            out.append(B(_inline(_re.sub(r"^\s*[-*] ", "", line))))
+            bullet_src.append(_re.sub(r"^\s*[-*] ", "", line))
+            out.append(B(_inline(bullet_src[-1])))
         elif _re.match(r"^\s*\d+\. ", line):
             flush_para()
-            out.append(B(_inline(_re.sub(r"^\s*", "", line))))
+            bullet_src.append(_re.sub(r"^\s*", "", line))
+            out.append(B(_inline(bullet_src[-1])))
+        elif raw.startswith(("   ", "\t")) and bullet_src and not para:
+            # wrapped continuation of the previous list item
+            bullet_src[-1] += " " + line.strip()
+            out[-1] = B(_inline(bullet_src[-1]))
         else:
             para.append(line.strip())
     flush_para()

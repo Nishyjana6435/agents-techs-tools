@@ -322,6 +322,17 @@ async def research_node(state: AssistantState) -> dict[str, Any]:
     trace.append({"step": "plan", "method": method, "steps": plan, "code": code})
 
     collection, notes = await _explore(plan, user, registry)
+    if not collection:
+        # Adaptive research: LLM-inferred filters (especially dates) are often too strict. Relax in two steps,
+        # exactly like the retrieval agent does, before concluding that nothing matches.
+        for label, strip in (("date filters", ("created_after", "created_before")), ("all filters", ("created_after", "created_before", "department", "document_types"))):
+            relaxed = [{k: v for k, v in step.items() if k not in strip} for step in plan]
+            emit("rlm", "research", f"no documents matched; retrying plan without {label}", plan=relaxed)
+            collection, more = await _explore(relaxed, user, registry)
+            notes += [f"relaxed {label} after empty result", *more]
+            if collection:
+                plan = relaxed
+                break
     docs = sorted({e["doc_id"] for e in collection})
     emit(
         "rlm",

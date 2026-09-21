@@ -78,13 +78,15 @@ class HybridRetriever:
         try:
             vector = (await embed_with_timeout(self.embedder, [query], timeout=20))[0]
         except Exception as exc:
-            notes.append(f"embedding failed ({exc.__class__.__name__}); dense search skipped")
+            log.warning("dense_search_embedding_failed", error=f"{exc.__class__.__name__}: {str(exc)[:200]}")
+            notes.append(f"embedding failed ({exc.__class__.__name__}: {str(exc)[:80]}); dense search skipped")
             return {}, notes
 
         async def one(ns: str):
             try:
                 return await self.store.query(vector, k, ns, metadata_filter)
             except VectorStoreError as exc:
+                log.warning("dense_search_store_failed", namespace=ns, error=str(exc)[:200])
                 notes.append(f"vector store error in namespace {ns}: {exc}")
                 return []
 
@@ -205,6 +207,6 @@ class HybridRetriever:
         log.info(
             "hybrid_search",
             query=query[:80],
-            **{k: v for k, v in result.__dict__.items() if k not in ("results", "query", "notes")},
+            **{k: v for k, v in result.__dict__.items() if k not in ("results", "query")},
         )
         return result
