@@ -44,7 +44,9 @@ async def response_node(state: AssistantState) -> dict[str, Any]:
     if state.get("research_findings"):
         sections.append(f"## Research findings\n{state['research_findings']}")
     if state.get("tool_results"):
-        sections.append(f"## Tool results\n{render_tool_results(state['tool_results'])}")
+        sections.append(
+            f"## Tool results\n{render_tool_results(state['tool_results'], first_id=len(evidence) + 1)}"
+        )
     if state.get("degraded"):
         sections.append(
             "## Note\nSome components were degraded during this request; be explicit about limitations."

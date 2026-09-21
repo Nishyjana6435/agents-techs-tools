@@ -140,6 +140,8 @@ def register_builtin_tools(reg: ToolRegistry) -> None:
             permission=Permission.KNOWLEDGE_SEARCH,
             params_schema=KnowledgeSearchParams,
             handler=knowledge_search,
+            # Includes embedding (with rate-limit backoff), vector fan-out and an LLM rerank: needs more than the default.
+            timeout_seconds=45,
             category="retrieval",
         )
     )

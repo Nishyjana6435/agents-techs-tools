@@ -90,8 +90,9 @@ def _answer_payload(state: dict[str, Any], run_id: str, trace_url: str | None) -
         ],
         "validation": state.get("validation") or {},
         "tool_results": [
-            {k: v for k, v in r.items() if k != "output"} | {"output_preview": str(r.get("output"))[:300]}
-            for r in (state.get("tool_results") or [])
+            {k: v for k, v in r.items() if k != "output"}
+            | {"citation_id": len(evidence) + i + 1, "output_preview": str(r.get("output"))[:300]}
+            for i, r in enumerate(state.get("tool_results") or [])
         ],
         "rlm_trace": state.get("rlm_trace") or [],
         "memory_updates": state.get("memory_updates") or [],

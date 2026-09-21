@@ -7,6 +7,10 @@ reasoning, cites its evidence and refuses to do anything the user's role does no
 
 Built with **Python · FastAPI · LangGraph · Pinecone · LangSmith · MCP · Streamlit · Claude**.
 
+> **Demo video (4 min, live providers):** [docs/video/demo.mp4](docs/video/demo.mp4) - recorded automatically by
+> `scripts/record_demo.py` (Playwright drives the UI, macOS `say` narrates, ffmpeg muxes). Re-record any time with
+> `uv run python scripts/record_demo.py`.
+>
 > Non-technical readers: start with `docs/pdf/User_Guide.pdf` (what each part does, in plain English) and
 > `docs/pdf/Questions_and_Answers.pdf` (questions you can ask and what to expect).
 
@@ -196,3 +200,5 @@ filtering, graph routes (retrieval with memory, RLM, blocked, RBAC downgrade, HI
 * `docs/DEMO_SCRIPT.md` - 45-minute demo plan with LangSmith
 * `docs/pdf/User_Guide.pdf` - plain-English explanation of every component
 * `docs/pdf/Questions_and_Answers.pdf` - questions to ask the assistant, by role, with expected answers
+* `docs/pdf/Interview_Prep.pdf` - demo script, challenges, open questions, likely evaluator questions
+* `docs/video/demo.mp4` - narrated 4-minute demo

@@ -8,7 +8,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from assistant.graph.events import emit
-from assistant.graph.prompts import REWRITE_SYSTEM, render_evidence
+from assistant.graph.prompts import REWRITE_SYSTEM, citation_ids, render_evidence, render_tool_results
 from assistant.graph.resilience import resilient
 from assistant.graph.state import AssistantState
 from assistant.llm import get_llm, llm_call
@@ -28,7 +28,7 @@ def _validator_fallback(state: AssistantState, exc: Exception) -> dict[str, Any]
 @resilient("validator", _validator_fallback)
 async def validator_node(state: AssistantState) -> dict[str, Any]:
     evidence = state.get("evidence") or []
-    allowed_ids = set(range(1, len(evidence) + 1))
+    allowed_ids = citation_ids(evidence, state.get("tool_results") or [])
     evidence_required = state.get("route") in ("retrieval", "research") and bool(evidence)
     report = check_response(state.get("draft_answer", ""), allowed_ids, evidence_required)
     rewrite_count = state.get("rewrite_count", 0)
@@ -76,7 +76,9 @@ async def rewrite_node(state: AssistantState) -> dict[str, Any]:
     )
     prompt = (
         "Problems found:\n- " + "\n- ".join(issues) + "\n\n"
-        f"Valid evidence ids: 1..{len(state.get('evidence') or [])}\n\n{render_evidence(state.get('evidence') or [], max_chars_each=500)}\n\n"
+        f"Valid citation ids: 1..{len(citation_ids(state.get('evidence') or [], state.get('tool_results') or []))}\n\n"
+        f"{render_evidence(state.get('evidence') or [], max_chars_each=500)}\n"
+        f"{render_tool_results(state.get('tool_results') or [], max_chars=600, first_id=len(state.get('evidence') or []) + 1)}\n\n"
         f"DRAFT:\n{state.get('draft_answer', '')}"
     )
     msg = await llm_call(

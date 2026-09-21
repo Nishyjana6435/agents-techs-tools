@@ -17,6 +17,7 @@
 | Streamlit re-render of the activity log as markdown | Custom component | Simplest thing that updates live; UI beauty is explicitly not a goal. |
 
 ## Known limitations
+* Voyage's free tier allows only a few embedding requests per minute; the coalescing embedder, query cache and backoff keep the demo working, but a paid tier (or OpenAI embeddings) is needed for real traffic.
 * The hashed local embedder is a stand-in; configure Voyage or OpenAI for real semantic recall.
 * `InMemorySaver` and in-process rate limiting are single-replica; use Postgres/Redis for horizontal scale.
 * Regex-based injection detection has false negatives; treat it as one layer of several.

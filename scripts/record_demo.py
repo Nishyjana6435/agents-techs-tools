@@ -265,7 +265,7 @@ def main() -> None:
             f"Documents are indexed in {health['vector_store']} with {health['embeddings']} embeddings."
         )
         trace_line = (
-            "Every turn is recorded in LangSmith as a trace with one span per node, model call, retrieval and tool call; the link appears under each answer."
+            "Every turn is recorded in LangSmith as a trace with a span per node, model call, retrieval and tool call; the link appears under each answer."
             if langsmith_on
             else "With a LangSmith key, every turn is recorded as a trace with one span per node, model call, retrieval and tool call."
         )
@@ -286,7 +286,7 @@ def main() -> None:
 
             rec.scene(
                 "title",
-                f"This is the Meridian Knowledge Assistant, an enterprise A I assistant for a commercial bank, built with FastAPI, LangGraph, Pinecone, LangSmith, an M C P server and Streamlit. {model_line} {store_line}",
+                f"This is the Meridian Knowledge Assistant, an enterprise A I assistant for a commercial bank, built with FastAPI, LangGraph, Pinecone, LangSmith, M C P and Streamlit. {model_line}",
                 lambda: card(
                     page,
                     "Meridian Knowledge Assistant",
@@ -301,7 +301,7 @@ def main() -> None:
 
             rec.scene(
                 "architecture",
-                "Every question flows through one graph. A guard screens for prompt injection, memory is loaded, then a supervisor agent picks the route: retrieval for focused questions, research for broad multi-document analysis, or tools for enterprise data and admin actions. A response agent writes a cited answer, a validator checks citations, secrets and brand rules, and memory is updated.",
+                "Every question flows through one graph: a guard screens for prompt injection, a supervisor picks the route, retrieval, research or tools do the work, a response agent writes a cited answer, and a validator checks citations, secrets and brand rules.",
                 lambda: page.goto((ROOT / "docs" / "architecture.png").as_uri()),
             )
 
@@ -323,14 +323,8 @@ def main() -> None:
 
             rec.scene(
                 "retrieval",
-                "A focused question. The Agent Activity Panel shows each node live: the guard validates the input, the supervisor states intent and route, the retrieval agent runs a hybrid search of dense vectors plus keyword search with rank fusion and reranking, the answer streams with citations, the validator passes it, and memory records what was learned. Every source shows document, section, classification, score and why it was selected.",
+                "A focused question. The Agent Activity Panel shows each node live: the guard validates the input, the supervisor states intent and route, the retrieval agent runs a hybrid search of dense vectors plus keyword search with rank fusion and reranking, the answer streams with citations, the validator passes it, and memory records what was learned for future turns and sessions. Every source shows document, section, classification, score and why it was selected.",
                 s_retrieval,
-            )
-
-            rec.scene(
-                "memory",
-                "A follow-up in the same conversation. Memory now shows the previous turn and topics, and the supervisor resolves the reference to the earlier answer. Working memory is the LangGraph checkpointer; a long-term profile persists across sessions.",
-                lambda: ask(page, "Which incident led to that counter-party confirmation step?"),
             )
 
             rec.scene(
@@ -388,7 +382,7 @@ def main() -> None:
 
             rec.scene(
                 "closing",
-                f"{trace_line} The repository includes architecture and security documentation, an offline test suite, Docker Compose packaging and a plain-English user guide. Thank you.",
+                f"{store_line} {trace_line} The repository includes architecture and security docs, an offline test suite, Docker Compose packaging and a plain-English user guide. Thank you.",
                 lambda: card(
                     page,
                     "Thank you",

@@ -66,19 +66,27 @@ def render_history(messages: list[BaseMessage], summary: str, limit: int = 8) ->
     return "\n".join(lines) or "(no prior turns)"
 
 
-def render_tool_results(results: list[dict[str, Any]], max_chars: int = 2500) -> str:
+def render_tool_results(results: list[dict[str, Any]], max_chars: int = 2500, first_id: int = 1) -> str:
+    """Tool results are citable too: their ids continue after the evidence ids (see ``citation_ids``)."""
     if not results:
         return "(no tool results)"
     blocks = []
-    for r in results:
+    for offset, r in enumerate(results):
         body = json.dumps(
             r.get("output") if r.get("ok") else {"error": r.get("error"), "denied": r.get("denied")},
             default=str,
         )
         if len(body) > max_chars:
             body = body[:max_chars] + " ...(truncated)"
-        blocks.append(f'<tool_result tool="{r["tool"]}" ok="{r.get("ok")}">\n{body}\n</tool_result>')
+        blocks.append(
+            f'<tool_result id="{first_id + offset}" tool="{r["tool"]}" ok="{r.get("ok")}">\n{body}\n</tool_result>'
+        )
     return "\n".join(blocks)
+
+
+def citation_ids(evidence: list[dict[str, Any]], tool_results: list[dict[str, Any]]) -> set[int]:
+    """Every id the answer may cite: evidence 1..N, then tool results N+1..N+M."""
+    return set(range(1, len(evidence) + len(tool_results) + 1))
 
 
 SUPERVISOR_SYSTEM = (
@@ -153,6 +161,7 @@ RESPONSE_SYSTEM = (
 You are the Response agent. Write the final answer for the user using ONLY the evidence, research findings
 and tool results provided. Requirements:
 - Cite supporting evidence inline with [n]; every factual claim needs a citation when evidence exists.
+  Tool results carry their own ids (continuing after the evidence ids) and are cited the same way.
 - Start with the direct answer, then supporting detail. Use markdown headings/bullets for long answers.
 - If evidence is missing or partial, say what is missing. If a tool was denied for the user's role, say so.
 - Finish with a short "Sources" list mapping each cited [n] to the document title and section."""
