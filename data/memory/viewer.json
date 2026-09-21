@@ -1,16 +1,16 @@
 {
   "username": "viewer",
   "topics": {
-    "security": 8,
-    "runbooks": 7,
-    "incidents": 4
+    "security": 10,
+    "runbooks": 9,
+    "incidents": 5
   },
   "departments": {
-    "payments": 15,
-    "security": 7,
+    "payments": 19,
+    "security": 9,
     "platform_engineering": 2,
     "compliance": 1,
-    "digital_channels": 3
+    "digital_channels": 4
   },
   "recent_questions": [
     "What is the procedure for certificate rotation?",
@@ -28,6 +28,6 @@
   "preferences": {
     "answer_style": "concise"
   },
-  "turns": 16,
-  "last_seen": "2026-09-21T08:51:42+00:00"
+  "turns": 20,
+  "last_seen": "2026-09-21T09:03:11+00:00"
 }
