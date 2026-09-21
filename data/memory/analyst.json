@@ -1,0 +1,21 @@
+{
+  "username": "analyst",
+  "topics": {
+    "payments": 1,
+    "incidents": 1
+  },
+  "departments": {
+    "data_platform": 2,
+    "payments": 2,
+    "platform_engineering": 2
+  },
+  "recent_questions": [
+    "Who is the owner of the paycore-gateway service and who is on-call?",
+    "Who is the owner of the paycore-gateway service and who is on-call?",
+    "Summarize all outage reports related to payment failures during the last year and identify recurring root causes."
+  ],
+  "feedback": [],
+  "preferences": {},
+  "turns": 3,
+  "last_seen": "2026-09-21T08:46:59+00:00"
+}

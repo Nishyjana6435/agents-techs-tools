@@ -1,0 +1,17 @@
+{
+  "username": "admin",
+  "topics": {
+    "incidents": 1
+  },
+  "departments": {},
+  "recent_questions": [
+    "Escalate INC-2025-0112 please",
+    "Please escalate INC-2025-0419 to the reliability review, root cause recurring"
+  ],
+  "feedback": [],
+  "preferences": {
+    "answer_style": "concise"
+  },
+  "turns": 2,
+  "last_seen": "2026-09-21T08:46:59+00:00"
+}

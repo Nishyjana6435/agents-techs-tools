@@ -45,14 +45,33 @@ class MockChatModel(BaseChatModel):
         return handler(system, user, messages)
 
     def _task_supervisor(self, system: str, user: str, _: list[BaseMessage]) -> str:
-        q = user.lower()
+        question = user.split("User question:", 1)[-1].strip() if "User question:" in user else user
+        q = question.lower()
         research_markers = ("all ", "summarize", "summarise", "recurring", "across", "compare", "trend", "every ")
-        tool_markers = ("employee", "who is", "service catalog", "owner of", "on-call", "directory", "incident records", "open incidents")
+        tool_markers = ("employee", "who is", "service catalog", "owner of", "owner", "on-call", "on call", "directory", "incident records", "open incidents", "escalate", "reindex", "list services")
         route = "retrieval"
-        if any(m in q for m in research_markers):
-            route = "research"
-        elif any(m in q for m in tool_markers):
+        tool_plan: list[dict[str, Any]] = []
+        if any(m in q for m in tool_markers):
             route = "tools"
+            svc = re.search(r"\b([a-z]+(?:-[a-z]+)+)\b", q)
+            if ("owner" in q or "service" in q) and svc:
+                tool_plan.append({"tool": "mcp.get_service", "params": {"name": svc.group(1)}, "reason": "service ownership lookup"})
+            if "on-call" in q or "on call" in q:
+                tool_plan.append({"tool": "mcp.who_is_on_call", "params": {}, "reason": "on-call roster"})
+            if "employee" in q or "who is" in q:
+                name = re.search(r"who is ([A-Za-z ]+?)(\?|$| and)", question)
+                tool_plan.append({"tool": "mcp.lookup_employee", "params": {"query": (name.group(1).strip() if name else question[:40])}, "reason": "directory lookup"})
+            if "incident records" in q or "open incidents" in q:
+                tool_plan.append({"tool": "mcp.search_incidents", "params": {"status": "open"} if "open" in q else {}, "reason": "incident records"})
+            if "list services" in q:
+                tool_plan.append({"tool": "mcp.list_services", "params": {"department": "payments"} if "payment" in q else {}, "reason": "service catalog"})
+            if "escalate" in q:
+                inc = re.search(r"INC-\d{4}-\d{4}", question, re.I)
+                tool_plan.append({"tool": "escalate_incident", "params": {"incident_id": (inc.group(0).upper() if inc else "INC-2025-0419"), "note": question[:200]}, "reason": "user asked to escalate"})
+            if "reindex" in q:
+                tool_plan.append({"tool": "reindex_knowledge_base", "params": {"reason": question[:100]}, "reason": "user asked to reindex"})
+        elif any(m in q for m in research_markers):
+            route = "research"
         elif q.strip().rstrip("?!.") in {"hi", "hello", "hey", "thanks", "thank you"}:
             route = "direct"
         filters: dict[str, Any] = {}
@@ -64,13 +83,13 @@ class MockChatModel(BaseChatModel):
             filters["created_after"] = "2025-01-01"
         return json.dumps(
             {
-                "intent": f"{route} request about: {user[:60]}",
+                "intent": f"{route} request about: {question[:80]}",
                 "route": route,
                 "filters": filters,
                 "sub_questions": ["What incidents occurred?", "What were the root causes?", "Which root causes recur?"]
                 if route == "research"
                 else [],
-                "tool_hints": ["mcp_lookup"] if route == "tools" else [],
+                "tool_plan": tool_plan,
                 "rationale": "mock supervisor: keyword heuristics selected the route",
             }
         )
@@ -90,7 +109,7 @@ class MockChatModel(BaseChatModel):
     def _task_rlm_batch(self, system: str, user: str, _: list[BaseMessage]) -> str:
         findings = []
         for cid, title, section, body in EVIDENCE_RE.findall(user):
-            causes = [c for c in ROOT_CAUSE_RE.findall(body) if len(c) < 90]
+            causes = [c for c in ROOT_CAUSE_RE.findall(body) if len(c) < 120 and not c.rstrip().endswith(":")]
             if causes:
                 findings.append(f"- {title} [{cid}]: root cause - {causes[0].rstrip('.')}")
             else:

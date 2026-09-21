@@ -47,7 +47,7 @@ RULES: list[Rule] = [
     _r("dan_style", "role_play_jailbreak", r"\b(you are now|from now on you are|pretend (to be|you are)|act as)\b.{0,60}\b(unrestricted|no (rules|limits|restrictions)|jailbroken|developer mode|dan)\b", 0.7),
     _r("hypothetical_unlock", "role_play_jailbreak", r"\b(hypothetically|in a fictional world|for a story)\b.{0,80}\b(reveal|leak|bypass|ignore)\b", 0.4),
     # --- Data exfiltration --------------------------------------------------------------------------
-    _r("reveal_system_prompt", "data_exfiltration", r"\b(reveal|show|print|repeat|dump|output|display)\b.{0,40}\b(system prompt|hidden prompt|initial prompt|your instructions|configuration|api key|secret|credentials?|password)", 0.8),
+    _r("reveal_system_prompt", "data_exfiltration", r"\b(reveal|show|print|repeat|dump|display|tell me)\b.{0,30}\b(your|the|this|its|all)\s+(system prompt|hidden prompt|initial prompt|instructions|configuration|api keys?|secrets?|credentials?|passwords?)", 0.8),
     _r("exfil_to_url", "data_exfiltration", r"\b(send|post|upload|transmit|forward|email)\b.{0,60}\b(to|at)\b.{0,10}(https?://|\S+@\S+\.\S+|webhook)", 0.8),
     _r("markdown_image_exfil", "data_exfiltration", r"!\[[^\]]*\]\(https?://[^)]*\?[^)]*\)", 0.7),
     _r("dump_all_docs", "data_exfiltration", r"\b(list|dump|export|print)\b.{0,20}\b(all|every)\b.{0,20}\b(documents?|records?|customers?|employees?|passwords?|accounts?)\b.{0,30}\b(verbatim|in full|raw|complete)", 0.5),

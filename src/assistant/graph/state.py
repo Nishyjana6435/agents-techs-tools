@@ -70,3 +70,8 @@ def user_from_state(state: AssistantState):
     from assistant.auth.models import UserContext
 
     return UserContext.model_validate(state["user"])
+
+
+def user_to_state(user) -> dict[str, Any]:
+    """Always JSON-mode so enums become plain strings in checkpoints."""
+    return user.model_dump(mode="json")
